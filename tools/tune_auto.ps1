@@ -344,8 +344,10 @@ function Do-Check($sp) {
 }
 
 function Do-Group($sp) {
-    if ($Side -ne 'l') {
-        throw "只允许对左轮做实验（-Side l）。右轮保持 0 才能让车绕固定半径圆环、行程有界，见 速度环调参说明.md §9.0。"
+    # 安全规则：一次只许一侧闭环，另一侧必须为 0（车绕另一侧轮子转圈，行程有界）。
+    # 左轮或右轮都可以做实验，但绝不允许 all/两侧同时闭环。
+    if ($Side -ne 'l' -and $Side -ne 'r') {
+        throw "只允许单侧实验（-Side l 或 -Side r）。两侧同时闭环会让车直行冲出去，见 速度环调参说明.md §9.0。"
     }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
     Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} ==' -f $Tag, $Side, $Target, $RunMs, $Reps)

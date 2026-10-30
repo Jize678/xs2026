@@ -111,7 +111,7 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
 #---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
 # 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
 # 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
-$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|vl\d+|vr\d+|bmq|g|z|!.*)$'
+$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
 
 function Assert-SafeCmd([string]$Text) {
     $t = $Text.Trim()
@@ -186,6 +186,19 @@ function ConvertTo-Rows([string[]]$Lines, [string]$Side1) {
         }
     }
     return , $rows.ToArray()
+}
+
+# 丢掉“陈旧前缀”：蓝牙断开重连时串口缓冲里可能残留上一组的一行，
+# 时间戳差好几分钟，会把 dur 拉到几百秒、把 100ms 块均退化成原始采样
+# （表现为 worstdev 98%、sd 150 这种假异常）。只在表头连续断层时丢行。
+function Drop-StalePrefix([object[]]$Rows) {
+    # 先按 ms 排序：陈旧行可能是迟到的最末一行（文件顺序在尾、排序后在头）
+    $r = @($Rows | Sort-Object ms)
+    while ($r.Count -ge 6) {
+        $dt = $r[1].ms - $r[0].ms
+        if ($dt -lt 0 -or $dt -gt 60) { $r = @($r[1..($r.Count - 1)]) } else { break }
+    }
+    return , $r
 }
 
 function Get-Metrics([object[]]$Rows, [int]$Target, [string]$Side1) {
@@ -398,7 +411,11 @@ function Do-Group($sp) {
         Set-Content -Path $file -Value $csvLines -Encoding ASCII
         Write-Host ("  saved {0} rows -> {1}" -f $rows.Count, $file) -ForegroundColor DarkGray
 
-        $m = Get-Metrics $rows $Target $Side
+        $rowsClean = Drop-StalePrefix $rows
+        if ($rowsClean.Count -ne $rows.Count) {
+            Write-Warning ("  dropped {0} stale leading row(s) (bluetooth residue)" -f ($rows.Count - $rowsClean.Count))
+        }
+        $m = Get-Metrics $rowsClean $Target $Side
         if (-not $m.valid) { Write-Warning ("  rep {0} invalid: {1}" -f $rep, $m.reason) }
         $v = Get-VerDict $m $Target
         Show-Metrics $m $v

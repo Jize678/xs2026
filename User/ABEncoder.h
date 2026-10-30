@@ -29,11 +29,24 @@
 /* counts/采样周期 -> mm/s：1 count/2ms ≈ 9.1784 mm/s（满速 230 counts/2ms ≈ 2111 mm/s） */
 #define ENC_COUNTS_TO_MM_S     (1000.0f / ENC_COUNTS_PER_METER / ((float)ENC_SAMPLE_MS * 0.001f))
 
+/* ---------------- 测速滑窗（A2 降噪，2026-10-30） ----------------
+ * 2ms 窗口下 1 count 就是 9.1784 mm/s，500 mm/s 时量化占 ±1.84%，原始序列噪声大
+ * （见 速度环调参记录.md §11.4/§11.5）。这里把 speed_*_mm_s 改成“最近 N 拍的
+ * 计数平均 / N”，量纲仍是 counts per 2ms，标定常数不用改：
+ *   N = 5  → 噪声 ÷√5≈2.2（随机分量）、量化分辨率 1.84% → 0.37%，
+ *            群延迟 (N-1)/2 拍 = 4 ms（20Hz 处损失约 29° 相位）。
+ *   N = 1  → 退化为原来的瞬时差分，可用来做 A/B 对比。
+ * 注意：这只改**速度估计窗口**，控制拍仍然是 2ms（500Hz），两者不要混为一谈。
+ * 原始瞬时值仍在 speed_*_mm_s_raw 里，供诊断/对比用。
+ */
+#define ENC_SPEED_WINDOW       5
+
 void ABEncoder_Init(void);
 void ABEncoder_UpdateSpeed(void);
 int16_t ABEncoder_GetSpeed_left(void);
 int16_t ABEncoder_GetSpeed_right(void);
 extern int16_t speed_left,speed_right;
-extern float speed_left_mm_s, speed_right_mm_s;   /* 控制用：mm/s（已含 ±1 方向修正） */
+extern float speed_left_mm_s, speed_right_mm_s;   /* 控制用：mm/s（已含 ±1 方向修正，已做 ENC_SPEED_WINDOW 拍滑窗平均） */
+extern float speed_left_mm_s_raw, speed_right_mm_s_raw;   /* 原始瞬时值（单拍差分），仅供诊断/对比 */
 extern int32_t left_ecoder_cnt, right_ecoder_cnt;
 #endif

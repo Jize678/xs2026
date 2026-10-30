@@ -20,7 +20,8 @@ void SpeedPID_Init(SpeedPID_Controller_t *controller, float kp, float ki, float 
 	controller->param.integral_max = output_max * 0.5f;  // 积分限幅设为输出上限的一半
 	controller->param.integral_min = output_min * 0.5f;
 	
-	controller->last_error = 0.0f;
+	controller->last_error  = 0.0f;
+	controller->last_error2 = 0.0f;
 	controller->last_output = 0.0f;
 	controller->integral = 0.0f;
 	controller->last_target = 0.0f;
@@ -30,10 +31,14 @@ void SpeedPID_Init(SpeedPID_Controller_t *controller, float kp, float ki, float 
 }
 
 /**
- * @brief 速度环PID计算（增量式）
+ * @brief 速度环PID计算（增量式，标准式）
  * 增量式PID公式：Δu(k) = Kp*[e(k)-e(k-1)] + Ki*e(k) + Kd*[e(k)-2*e(k-1)+e(k-2)]
- * 简化版：Δu(k) = Kp*[e(k)-e(k-1)] + Ki*e(k) + Kd*[e(k)-e(k-1)]
  * 输出：u(k) = u(k-1) + Δu(k)
+ *
+ * 历史：2026-10-30 之前 P 项与 D 项共用同一个 Δe，kd 等效于"第二个 kp"
+ * （见 速度环调参记录.md §5，Δe 增益实为 kp+kd=1.23）。本版把 D 项恢复为
+ * 真正的二阶差分 e(k)-2e(k-1)+e(k-2)，默认增益随之按"等效保真"重标：
+ * kp 0.60→1.23、kd 0.63→0，Δe 总增益仍为 1.23，车的手感不变。
  */
 float SpeedPID_Calculate(SpeedPID_Controller_t *controller, float target_speed, float current_speed)
 {
@@ -49,8 +54,8 @@ float SpeedPID_Calculate(SpeedPID_Controller_t *controller, float target_speed, 
 	// 积分项：Ki * e(k)
 	float i_term = controller->param.ki * error;
 	
-	// 微分项：Kd * (e(k) - e(k-1))
-	float d_term = controller->param.kd * (error - controller->last_error);
+	// 微分项：Kd * [e(k) - 2*e(k-1) + e(k-2)]
+	float d_term = controller->param.kd * (error - 2.0f * controller->last_error + controller->last_error2);
 	 
 	// 计算增量输出
 	delta_output = p_term + i_term + d_term;
@@ -70,8 +75,9 @@ float SpeedPID_Calculate(SpeedPID_Controller_t *controller, float target_speed, 
 	controller->last_p_term   = p_term;
 	controller->last_i_term   = i_term;
 
-	// 保存当前误差和输出
-	controller->last_error = error;
+	// 保存当前误差和输出（last_error2 必须比 last_error 晚一拍更新）
+	controller->last_error2 = controller->last_error;
+	controller->last_error  = error;
 	controller->last_output = new_output;
 	
 	return new_output;
@@ -96,7 +102,8 @@ void SpeedPID_Reset(SpeedPID_Controller_t *controller)
 {
 	if(controller == NULL) return;
 	
-	controller->last_error = 0.0f;
+	controller->last_error  = 0.0f;
+	controller->last_error2 = 0.0f;
 	controller->last_output = 0.0f;
 	controller->integral = 0.0f;
 	controller->last_target = 0.0f;
@@ -133,14 +140,14 @@ void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, 
  * @brief 位置环PID计算（位置式）
  * 位置式PID公式：u(k) = Kp*e(k) + Ki*Σe(k) + Kd*[e(k)-e(k-1)]
  * 误差定义：error = current_position - target_position
- * 输出：位置偏右时为正（左轮减速、右轮加速），位置偏左时为负（左轮加速、右轮减速）
+ * 输出：位置偏右时为正（左目标变大、右目标变小，即左快右慢 = 右转），位置偏左时为负
  */
 float PositionPID_Calculate(PositionPID_Controller_t *controller, float current_position)
 {
 	if(controller == NULL) return 0.0f;
 	
 	// 误差 = 当前位置 - 目标位置
-	// 位置偏右（current_position > target_position）时，error为正，输出为正，左轮减速、右轮加速
+	// 位置偏右（current_position > target_position）时，error为正，输出为正 → 左目标变大、右目标变小
 	float error = current_position - controller->param.target_position;
 	float output = 0.0f;
 	
@@ -275,10 +282,11 @@ PositionPID_Controller_t g_position_pid;/* 外环：线位置 */
 void PID_Init(void)
 {
 	/* 内环 ×2：左右各自一个增量式速度环；参数暂时相同，状态各自独立。
-	 * 增益单位 = duty / (mm/s)：0.60/0.56/0.63 等效于旧写法 5.5/5.1/5.8 duty/(count·2ms⁻¹)，
-	 * 换算系数 1 count/2ms ≈ 9.1784 mm/s。*/
-	SpeedPID_Init(&g_speed_pid_l, 0.60f, 0.56f, 0.63f, 8000.0f, -8000.0f);
-	SpeedPID_Init(&g_speed_pid_r, 0.60f, 0.56f, 0.63f, 8000.0f, -8000.0f);
+	 * 增益单位 = duty / (mm/s)。2026-10-30 起 D 项改为标准二阶差分，增益按"等效保真"重标：
+	 * kp 0.60→1.23、kd 0.63→0，Δe 总增益仍为 1.23（等效旧写法 5.5/5.1/5.8 duty/(count·2ms⁻¹)，
+	 * 换算系数 1 count/2ms ≈ 9.1784 mm/s）；需要真微分时用 tune 模式的 kdl/kdr 在线加。*/
+	SpeedPID_Init(&g_speed_pid_l, 1.23f, 0.56f, 0.00f, 8000.0f, -8000.0f);
+	SpeedPID_Init(&g_speed_pid_r, 1.23f, 0.56f, 0.00f, 8000.0f, -8000.0f);
 
 	/* 外环：线位置 → 转向量（输出 ±9000，换算见文件顶部的框图） */
 	PositionPID_Init(&g_position_pid, 198.0f, 0.0f, 2280.0f, 2800.0f, 9000.0f, -9000.0f, 8.0f);

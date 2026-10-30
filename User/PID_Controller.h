@@ -13,19 +13,20 @@
  * 1. 位置环（外环 / 方向环）：输入线位置（0~15，中心 8.0），
  *    输出「转向量」steer（±9000，沿用旧的 duty 量纲）。
  * 2. 速度环（内环）：**左右轮各一个**，输入目标速度、反馈各自的编码器速度
- *    （单位：每 2ms 的计数增量），输出各自的占空比。
+ *    （单位：**mm/s**，由 ABEncoder 按 54476 counts/m 标定换算好），输出各自的占空比。
+ *    增量式：Δu = Kp·[e(k)−e(k−1)] + Ki·e(k) + Kd·[e(k)−2e(k−1)+e(k−2)]，u = u(k−1) + Δu。
  *
  * 数据流（每 2ms 一拍，PID_Control_Update()）：
- *    base  = 230 − min(|pos−8|,3)/3 × 100            // 偏差越大越慢，130~230
- *    steer = PositionPID_Calculate(pos)               // ±9000
+ *    base  = 2110 − min(|pos−8|,3)/3 × 920            // 偏差越大越慢，1190~2110 mm/s
+ *    steer = PositionPID_Calculate(pos)               // ±9000（方向环，duty 量纲的舵量）
  *    diff  = steer × base / 9000                      // 满舵 = ±base
  *    左目标 = base + diff  (≥0)
  *    右目标 = base − diff  (≥0)
- *    duty_L = SpeedPID_Calculate(&g_speed_pid_l, 左目标, speed_left)
- *    duty_R = SpeedPID_Calculate(&g_speed_pid_r, 右目标, speed_right)
+ *    duty_L = SpeedPID_Calculate(&g_speed_pid_l, 左目标, speed_left_mm_s)
+ *    duty_R = SpeedPID_Calculate(&g_speed_pid_r, 右目标, speed_right_mm_s)
  *
- * 极性（与旧版一致，未改）：
- *    error = pos − 8 > 0（线在偏 8 这一侧）→ steer > 0 → 左目标变大、右目标变小
+ * 极性（与旧版一致，未上板确认）：
+ *    error = pos − 8 > 0（线在偏 8 这一侧）→ steer > 0 → 左目标变大、右目标变小（左快右慢 = 右转）
  *    实际往哪边修正取决于 Y0~Y15 的安装方向，现场若发现越修越偏，把
  *    PID_Controller.c 里左右目标的加减号对调即可。
  */
@@ -47,7 +48,8 @@ typedef struct
 typedef struct
 {
 	SpeedPID_Param_t param;  // PID参数
-	float last_error;        // 上一次误差
+	float last_error;        // 上一次误差 e(k-1)
+	float last_error2;       // 上上次误差 e(k-2)，仅供 D 项二阶差分使用
 	float last_output;       // 上一次输出
 	float integral;          // 积分项累积
 

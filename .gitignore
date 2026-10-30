@@ -1,0 +1,36 @@
+# ---- Keil 编译产物（README §九：可随时删除重建，见 keilkill.bat）----
+Objects/
+Listings/
+*.o
+*.d
+*.crf
+*.dep
+*.axf
+*.hex
+*.bin
+*.elf
+*.map
+*.lst
+*.lnp
+*.sct
+*.iex
+*.build_log.htm
+*.__i
+*._ia
+
+# ---- Keil / IDE 用户级文件（每台机器不同，不入库）----
+*.uvguix.*
+*.uvoptx
+JLinkLog.txt
+JLinkSettings.ini
+EventRecorderStub.scvd
+DebugConfig/
+RTE/
+
+# ---- 临时构建日志（README 约定：build_*.log 用完删）----
+build*.log
+
+# ---- 系统垃圾 ----
+Thumbs.db
+desktop.ini
+.DS_Store

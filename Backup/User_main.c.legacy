@@ -1,0 +1,128 @@
+#include "stm32f10x.h"                  // Device header
+#include "Delay.h"
+#include "M3PWM.h"
+#include "Motor_ctr.h"
+#include "OLED.h"
+#include "ABEncoder.h"
+#include "ADC_get.h"
+#include "Uart_Config.h"
+#include "stdio.h"
+#include "math.h"
+#include "RGB_Led.h"
+#include "LSM6DSR_Config.h"
+#include "pose.h"
+#include "Key_Scan.h"
+#include "system_stm32f10x.h"
+#include "BlackPoint_Finder.h"
+#include "PID_Controller.h"
+#include "Car_Control.h"
+#include "Led_Status.h"
+
+// 滴答定时器初始化，2ms 中断一次（中断里的 PID 参数是按这个周期调的）
+void SysTick_Init(void)
+{
+    // SystemCoreClock / 500 = 72000000/500 = 144000 个时钟 = 2ms
+    SysTick_Config(SystemCoreClock / 500);
+}
+extern float add_angle ;
+extern float add_angle_num ;
+extern int16_t position_get;
+extern BlackPointResult_t result_BlackPoint;
+float BDI_V = 0;
+uint8_t star_car = 0;
+int main(void)
+{
+	//RGB初始化
+	RGB_Init();
+	//上电自检：两颗指示灯同时亮 0.5s，用来确认灯和极性正常
+	Led_Status_SelfTest();
+	//屏幕初始化
+	OLED_Init();
+	LSM6DSR_Init();
+	// 初始化PWM模块
+	M3PWM_Init();
+	// 初始化电机控制模块
+	Motor_Init();
+	// 启动PWM输出
+	M3PWM_Start();
+	//初始化编码器
+	ABEncoder_Init();
+	// 使能电机
+	BlackPoint_Finder_Init();
+	//光电管初始化
+	MuxADC_Init();
+	Key_Scan_Init();
+//	//串口2初始化
+	 Uart2_Init(115200);
+	 PID_Init();
+	// 上电默认进入待机：电机禁用、风扇停，等串口指令（'1' 发车 / '2' 电机测试）
+	Car_Control_Init();
+	// 所有外设初始化完（含风扇的 TIM2 重映射）后再确认一次指示灯引脚：
+	// 关掉 JTAG 并重新配成推挽输出，保证 PA15/PB3 是普通 GPIO
+	RGB_EnsureUsable();
+	// 滴答定时器初始化：放在所有外设初始化之后，
+	// 避免中断里用到还没初始化的 ADC/TIM 导致卡死
+	SysTick_Init();
+//	Delay_s(5);
+	/*主循环，循环体内的代码会一直循环执行*/
+	while (1)
+	{
+	//	LSM6DSR_ReadData(&LSE6DSR_data);
+		Key_Scan_Update();
+		// 解析串口指令：'0' 停止  '1' 闭环循迹发车  '2' 电机测试
+		Car_Control_Task();
+    // 处理按键事件
+    Key_Event_t *event = Key_GetEvent();
+		BDI_V = (float)g_mux_adc_values[16] * 0.00426508726f;
+    if(event != NULL)
+    {
+        switch(event->key_id)
+        {
+						case KEY_NONE:
+								break;
+            case KEY_K1:
+							// K1 等同于串口发 '1'（发车）
+							Car_Control_ApplyMode(CAR_MODE_TRACK);
+                break;
+            case KEY_K2:
+							// K2 等同于串口发 '0'（停车）
+							Car_Control_ApplyMode(CAR_MODE_IDLE);
+                break;
+						case KEY_K3:
+							// K3 暂未分配
+                break;
+						case KEY_K4:
+							// K4 暂未分配
+                break;
+        }
+    }
+
+	  if(Led_Status_GetState() == LED_ST_ALARM)
+	  {
+	  	OLED_ShowString(1,1,"ALARM");      // 异常停车（例如丢线保护）
+	  }
+	  else
+	  {
+	  	OLED_ShowString(1,1,(char *)Car_Control_GetModeName());   // IDLE / TRACK / TEST
+	  }
+	  OLED_ShowSignedNum(2,1,position_get,5);
+		OLED_ShowSignedNum(3,1,BDI_V * 100,5);
+//		OLED_ShowSignedNum(3,1,result_BlackPoint.found,5);
+		OLED_ShowSignedNum(4,1,speed_left + speed_right,5);
+//		else
+//		{
+//			while(1);
+//		}
+		//Delay_s(10);
+//		OLED_ShowSignedNum(1,1,speed_left,10);
+		//OLED_ShowSignedNum(1,1,2222222,10);
+//		OLED_Clear();
+//		Delay_ms(2000);
+//		/*PWM占空比调节演示*/
+//		// 设置PWM占空比为25%
+//		M3PWM_SetDutyCycle(500);
+//		Delay_ms(300);
+//		//Delay_ms(2000);
+//		Motor_Disable();
+	}
+}

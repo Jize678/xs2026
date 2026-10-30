@@ -1,0 +1,17 @@
+S3,S2,S1,S0,采样哪一路
+L,L,L,L,Y0
+L,L,L,H,Y1
+L,L,H,L,Y2
+L,L,H,H,Y3
+L,H,L,L,Y4
+L,H,L,H,Y5
+L,H,H,L,Y6
+L,H,H,H,Y7
+H,L,L,L,Y8
+H,L,L,H,Y9
+H,L,H,L,Y10
+H,L,H,H,Y11
+H,H,L,L,Y12
+H,H,L,H,Y13
+H,H,H,L,Y14
+H,H,H,H,Y15

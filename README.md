@@ -341,6 +341,10 @@ RGB_SetChannel(LAMP1_CH, 1);   /* RGB-3 / PB9 输出点亮电平 */
   16 路 ADC 扫描（每路切换后 `Delay_us(3)` 并丢弃一次采样）、寻线定位、丢线保护、PID、模式执行。
   循环体目前约 0.5ms，往里加东西要注意别挤爆 2ms 节拍。
 - PID 参数就是按 2ms 周期调的，想改成 1ms 需要重新调 PID。
+- **速度环调参只许单侧电机通电**（2026-10-30 定）：单轮驱动时车走固定半径圆环、行程有界，
+  不需要跑道也不会冲出去；两轮同时驱动就是直行，会一直加速到撞东西。所以调参只用
+  `vl<目标>` + `! <ms> l`，**禁止 `1`（TRACK）、`2`（MOTOR_TEST）、K1 和任何 `r…`/`vr…` 指令**。
+  详见 `速度环调参说明.md` §9.0。
 - 初始化顺序：`App_HardwareInit()`（全部外设）→ `App_StateInit()`（队列/事件组）→
   `App_CreateTasks()` → `vTaskStartScheduler()`。外设都在调度器启动前初始化完，
   任务里不会碰到没初始化的 ADC/定时器。
@@ -525,3 +529,4 @@ System/Delay.c          改用 DWT 周期计数器（带 nop 兜底）
 | 2026-10-30 | **接入 Git 版本管理**：本目录 `git init`（分支 `main`）并推送到 <https://github.com/Jize678/xs2026>，首个提交 `9350d1b`（153 个文件、约 13.7MB）；新增 `.gitignore` 忽略 Keil 编译产物（`Objects/`、`Listings/`、`*.o /*.d /*.crf /*.axf /*.hex /*.map`）、IDE 用户文件（`*.uvguix.*`、`*.uvoptx`、`JLinkLog.txt`、`JLinkSettings.ini`、`EventRecorderStub.scvd`、`DebugConfig/`）与临时日志 `build*.log`；`ld/` 下的 ST 参考 PDF 随库保存；本地设 `core.autocrlf=false` 保持原始换行、`core.quotepath=false` 正常显示中文文件名，作者身份用 GitHub noreply 邮箱 |
 | 2026-10-30 | **修掉速度环 D 项的结构性缺陷**：`SpeedPID_Calculate()` 里 `p_term` 与 `d_term` 原来共用同一个差分 `e(k)−e(k−1)`，`kd` 实际是"第二个 kp"（Δe 总增益 = `kp+kd` = 1.23，见 `速度环调参记录.md` §5）。本次 `d_term` 改为标准二阶差分 `kd*[e(k)−2e(k−1)+e(k−2)]`，`SpeedPID_Controller_t` 新增 `last_error2`（`Init`/`Reset` 清零，更新顺序必须是 `last_error2 = last_error; last_error = error;`）；默认增益按"等效保真"重标为 **`kp=1.23 / ki=0.56 / kd=0.00`**，Δe 总增益仍为 1.23 故手感不变；同时修正 `PID_Controller.h` 头部过期的 counts 量纲框图（230/130 → 2110/1190 mm/s）与 `PositionPID_Calculate()` 里"左轮减速、右轮加速"的错注释（代码实际是左目标变大 = 右转）。文档同步：`串口指令表.md`、`速度环调参说明.md` §5/§9 的默认增益、`速度环调参记录.md` 新增 §13（旧数据换算表，并注明 §12 的负压锁臂已作废）。编译 0 Error / 0 Warning，Code=36324 / RO-data=2116 / RW-data=436 / ZI-data=9204 |
 | 2026-10-30 | **测速加 5 拍滑窗（A2 降噪）**：`User/ABEncoder.h` 新增 `ENC_SPEED_WINDOW 5`（置 1 即退回瞬时差分，可做 A/B 对比），`User/ABEncoder.c` 在 `ABEncoder_UpdateSpeed()` 里为左右各加一个 5 深环形缓冲，`speed_left/right_mm_s` 改为"最近 5 拍计数和 / 5"（量纲仍是 counts per 2ms，`ENC_COUNTS_TO_MM_S` 与里程标定都不变），另存单拍瞬时值 `speed_left/right_mm_s_raw` 供诊断；上电前 4 拍按实际已填样本数取平均，避免被"不存在的历史"拉低。收益：500 mm/s 下量化分辨率 1.84% → **0.37%**、随机噪声 ÷√5；代价是 (N−1)/2 拍 = **4 ms 群延迟**（20 Hz 处约 29° 相位），**控制拍仍是 2ms**，两者不要混为一谈。`bmq` 的 `vL/vR`、`tune` 的 `fL/fR`、波形帧 CH1/CH2、OLED 速度行同步变为滑窗值。编译 0 Error / 0 Warning，Code=36536 / RO-data=2116 / RW-data=448 / ZI-data=9224 |
+| 2026-10-30 | **调参安全规则入档：只许单侧电机通电**。`速度环调参说明.md` 新增 **§9.0 硬安全规则**（单轮驱动 → 固定半径圆环 → 行程有界；禁止 `1`/`2`/K1/任何 `r…`、`vr…`、`testr…`；只读指令 `?`/`kq`/`bmq`/`g`/`z` 不限；本版固件无单侧开环命令故不做开环验证），§9.7 禁止事项同步改写；`tools/tune_auto.ps1` 增加白名单安全门 `Assert-SafeCmd()`（不在 `?/kq/k[lri d]/0/hlt/tune/vl/vr/bmq/g/z/!` 清单里的指令直接抛错拒发）与 `Do-Group` 的 `-Side r` 拦截。起因：当日调参中 AI 为验证测速噪声发了 `2`（MOTOR_TEST 两轮 30%），右轮跟着转了 2 秒，违反"只动左轮"的约定 |

@@ -105,7 +105,19 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
     return $lines
 }
 
+#---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
+# 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
+# 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
+$Script:SafeCmdPattern = '^(\?|kq|ki|kp|kd|kpl|kil|kdl|kpr|kir|kdr|0|hlt|tune|vl\d+|vr\d+|bmq|g|z|!.*)$'
+
+function Assert-SafeCmd([string]$Text) {
+    $t = $Text.Trim()
+    if ($t -match $Script:SafeCmdPattern) { return }
+    throw ("拒绝发送 '{0}'：调参期间只允许单侧闭环（vl + '! <ms> l'），两轮指令会让车直行冲出去。见 速度环调参说明.md §9.0" -f $t)
+}
+
 function Send-Line($sp, [string]$Text, [switch]$Quiet) {
+    Assert-SafeCmd $Text
     if (-not $Quiet) { Write-Host ("  >> " + $Text) -ForegroundColor Yellow }
     $sp.Write($Text + "`r`n")
     Start-Sleep -Milliseconds 60
@@ -113,7 +125,12 @@ function Send-Line($sp, [string]$Text, [switch]$Quiet) {
 
 function Send-Cmd($sp, [string]$Text, [int]$WaitMs = 600) {
     Send-Line $sp $Text
-    return (Collect $sp $WaitMs -Quiet)
+    $lines = Collect $sp $WaitMs -Quiet
+    # 回显除 CSV 数据行（group 时几百行，太吵）
+    foreach ($l in $lines) {
+        if ($l -notmatch $CsvRegex) { Write-Host ("  << " + $l) -ForegroundColor DarkGray }
+    }
+    return $lines
 }
 
 #---------------------------------------------------------------- 增益与参数
@@ -327,6 +344,9 @@ function Do-Check($sp) {
 }
 
 function Do-Group($sp) {
+    if ($Side -ne 'l') {
+        throw "只允许对左轮做实验（-Side l）。右轮保持 0 才能让车绕固定半径圆环、行程有界，见 速度环调参说明.md §9.0。"
+    }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
     Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} ==' -f $Tag, $Side, $Target, $RunMs, $Reps)
 

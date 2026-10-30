@@ -108,7 +108,7 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
 #---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
 # 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
 # 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
-$Script:SafeCmdPattern = '^(\?|kq|ki|kp|kd|kpl|kil|kdl|kpr|kir|kdr|0|hlt|tune|vl\d+|vr\d+|bmq|g|z|!.*)$'
+$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|vl\d+|vr\d+|bmq|g|z|!.*)$'
 
 function Assert-SafeCmd([string]$Text) {
     $t = $Text.Trim()
@@ -349,6 +349,9 @@ function Do-Group($sp) {
     }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
     Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} ==' -f $Tag, $Side, $Target, $RunMs, $Reps)
+
+    # 必须先进 tune：上电后默认 IDLE，此时 `!` 会被固件静默忽略（只回显、不闭环、不出 CSV）
+    [void](Send-Cmd $sp 'tune' 400)
 
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'

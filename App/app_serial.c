@@ -336,7 +336,6 @@ static uint8_t  s_tune_was  = 0;   /* 上一拍的 running，用来打印 [tune]
  *----------------------------------------------------------------------------*/
 static void Serial_SendTuneParams(void)
 {
-	static char buf[224];
 	Car_TuneSnapshot_t s;
 	int lp, li, ld, rp, ri, rd;
 
@@ -348,15 +347,14 @@ static void Serial_SendTuneParams(void)
 	ri = (int)(g_speed_pid_r.param.ki * 1000.0f + 0.5f);
 	rd = (int)(g_speed_pid_r.param.kd * 1000.0f + 0.5f);
 
-	(void)snprintf(buf, sizeof(buf),
-		"[tune] L kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n"
-		"[tune] R kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n"
-		"[tune] tgt L=%d R=%d mm/s run=%u limit=%d\r\n",
-		lp / 1000, lp % 1000, li / 1000, li % 1000, ld / 1000, ld % 1000,
-		rp / 1000, rp % 1000, ri / 1000, ri % 1000, rd / 1000, rd % 1000,
-		(int)s.target_l, (int)s.target_r, (unsigned int)s.running,
-		(int)g_speed_pid_l.param.output_max);
-	Serial_Log("%s", buf);
+	/* 一行一次 Serial_Log：Serial_Log 自己的缓冲只有 96 字节，拼成一大串会被截断 */
+	Serial_Log("[tune] L kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n",
+	           lp / 1000, lp % 1000, li / 1000, li % 1000, ld / 1000, ld % 1000);
+	Serial_Log("[tune] R kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n",
+	           rp / 1000, rp % 1000, ri / 1000, ri % 1000, rd / 1000, rd % 1000);
+	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u limit=%d fan=%u/1000\r\n",
+	           (int)s.target_l, (int)s.target_r, (unsigned int)s.running,
+	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty);
 }
 /* `! <ms> <l|r|all>` 收齐后：忙就提示，空闲就下发定时闭环 */
 static void Serial_TuneRunStart(uint8_t side)
@@ -366,13 +364,21 @@ static void Serial_TuneRunStart(uint8_t side)
 
 	name = (side == 0u) ? "L" : ((side == 1u) ? "R" : "ALL");
 	Car_Control_TuneSnapshot(&sn);
-	if(sn.running != 0u)
+	if((sn.running != 0u) || (sn.arming != 0u))
 	{
 		Serial_Log("[tune] busy: still running (send hlt to abort)\r\n");
 		return;
 	}
 	App_PostCmdArg(APP_CMD_TUNE_RUN, side, (int16_t)s_ex_ms);
-	Serial_Log("[tune] run %u ms %s\r\n", (unsigned int)s_ex_ms, name);
+	if(sn.fan_duty > 0u)
+	{
+		Serial_Log("[tune] run %u ms %s + fan %u/1000 (arm 1.5s)\r\n",
+		           (unsigned int)s_ex_ms, name, (unsigned int)sn.fan_duty);
+	}
+	else
+	{
+		Serial_Log("[tune] run %u ms %s\r\n", (unsigned int)s_ex_ms, name);
+	}
 }
 
 
@@ -428,6 +434,31 @@ static void Serial_CommitNumber(void)
 		}
 		App_PostCmd(APP_CMD_FAN_TEST, (uint8_t)pct);
 		Serial_Log("fan %u%% 5s\r\n", (unsigned int)pct);
+		return;
+	}
+
+	/* 调参模式的负压（tf）：只记设定，等下一次 `!` 实验才解锁并吹 */
+	if(cmd == 'P')
+	{
+		if(s_num_digits == 0u)
+		{
+			Serial_Log("tune fan: send tf0~tf100 (e.g. tf40), 0 = no fan\r\n");
+			return;
+		}
+		if(pct > 100u)
+		{
+			pct = 100u;
+		}
+		App_PostCmd(APP_CMD_TUNE_FAN, (uint8_t)pct);
+		if(pct == 0u)
+		{
+			Serial_Log("[tune] fan off: next ! runs without vacuum\r\n");
+		}
+		else
+		{
+			Serial_Log("[tune] fan %u%%: next ! arms 1.5s then runs with vacuum\r\n",
+			           (unsigned int)pct);
+		}
 		return;
 	}
 
@@ -670,6 +701,17 @@ static void Serial_HandleByte(uint8_t ch)
 			s_test_state = 2;
 			return;
 		}
+		/* "tf"：调参模式的负压加持（和 f 一样按百分比，但立刻生效的是下一次 !） */
+		if((ch == 'f') || (ch == 'F'))
+		{
+			s_test_state = 0;
+			s_num = 0;
+			s_num_digits = 0;
+			s_frac = 0;
+			s_frac_div = 0;
+			s_num_cmd = 'P';
+			return;
+		}
 		s_test_state = 0;
 	}
 	else if(s_test_state == 2u)
@@ -730,6 +772,7 @@ static void Serial_HandleByte(uint8_t ch)
 		{
 			App_PostCmd(APP_CMD_TUNE_ENTER, 0);
 			Serial_Log("[tune] enter: ! <ms> l|r|all | hlt | vl/vr<mm/s> | kpl0.6 | kq | 0 exit\r\n");
+			Serial_Log("[tune] tf0~100: vacuum for the next ! (0 = no fan)\r\n");
 			return;
 		}
 	}

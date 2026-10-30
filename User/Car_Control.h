@@ -116,6 +116,8 @@ typedef struct
 	uint8_t running;        /* 1 = 正在闭环 */
 	uint8_t side;           /* 本次 ! 的侧别（Car_TuneSide_t） */
 	uint16_t run_ms;        /* 本次 ! 的定时（ms），停止后保留显示 */
+	uint16_t fan_duty;      /* tf 设定的负压占空比（0~1000），0 = 不带负压 */
+	uint8_t  arming;        /* 1 = 正在等电调解锁（1.5s），闭环还没开始 */
 	int16_t target_l;       /* 左轮目标 mm/s */
 	int16_t target_r;       /* 右轮目标 mm/s */
 	int16_t feedback_l;     /* 左轮反馈 mm/s */
@@ -146,6 +148,8 @@ void        Car_Control_TuneSetTarget(Car_Wheel_t wheel, int16_t mm_s);
                                                                   /* vl/vr：设目标速度（mm/s） */
 void        Car_Control_TuneSetGain(Car_Wheel_t wheel, Car_TuneTerm_t term, float value);
                                                                   /* kl/il/dl 等：在线改增益 */
+void        Car_Control_TuneSetFan(uint16_t duty);
+                                                                  /* tf：设定下次 ! 实验的负压占空比（0~1000，0=不带） */
 void        Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap);   /* 取当前状态（串口打印用） */
                                                     /* 延时风扇：等 CAR_FAN_DELAY_MS 后跑 CAR_FAN_TEST_MS 再停 */
 

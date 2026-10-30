@@ -32,6 +32,9 @@ param(
     [double]$Ki = -1,
     [double]$Kd = -1,
 
+    # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
+    [ValidateRange(0, 100)][int]$Fan = 0,
+
     [string]$Tag = 'run',
     [string]$Cmd = '',
     [string]$OutDir = ''
@@ -350,10 +353,14 @@ function Do-Group($sp) {
         throw "只允许单侧实验（-Side l 或 -Side r）。两侧同时闭环会让车直行冲出去，见 速度环调参说明.md §9.0。"
     }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} ==' -f $Tag, $Side, $Target, $RunMs, $Reps)
+    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan)
 
     # 必须先进 tune：上电后默认 IDLE，此时 `!` 会被固件静默忽略（只回显、不闭环、不出 CSV）
     [void](Send-Cmd $sp 'tune' 400)
+
+    # 负压设定（粘性）：每组都显式下发，避免沿用上一组的意外值
+    $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
 
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'
@@ -379,7 +386,9 @@ function Do-Group($sp) {
             $pre = Send-Cmd $sp ('! ' + $RunMs + ' ' + $Side) 300
         }
 
-        $lines = Collect $sp ($RunMs + 3000) -Until '\[tune\] stop' -Quiet
+        $waitMs = $RunMs + 3000
+        if ($Fan -gt 0) { $waitMs += 2000 }   # 固件先解锁 1.5s 才开始闭环
+        $lines = Collect $sp $waitMs -Until '\[tune\] stop' -Quiet
         # 把发指令后 300 ms 里已经收到的那几行也并进来，避免丢掉启动段
         $lines = @($pre) + @($lines)
         $csvLines = @($lines | Where-Object { $_ -match $CsvRegex })

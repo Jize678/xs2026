@@ -30,6 +30,9 @@ RTE/
 # ---- 临时构建日志（README 约定：build_*.log 用完删）----
 build*.log
 
+# ---- 调参原始数据（tools/tune_auto.ps1 输出，结论进 速度环调参记录.md）----
+tune_data/
+
 # ---- 系统垃圾 ----
 Thumbs.db
 desktop.ini

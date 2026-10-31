@@ -19,12 +19,18 @@ XS2026 双电机直行（两侧同时闭环）测试记录
    硬倒计时会自停。
 
 ----------------------------------------------------------------
-二、判定口径（速度环调参说明.md §10.1，按 100 ms 块均）
+二、判定口径（速度环调参说明.md §10.1，2026-10-31 定稿）
 ----------------------------------------------------------------
-[1] t90 ∈ [100, 300] ms
-[2] t90 之后相对目标的最大偏离 ≤ 10%
-[3] 稳态误差 ≤ ±2%（1000 → 980~1020；1500 → 1470~1530）
+[1] 快速响应（调节时间）：从某 100 ms 块起，其后 ≥95% 的块均落在
+    目标 ±2% 带内，该块结束时刻 = tset，要求 tset ≤ 300 ms。
+[2] 低超调（波动幅度）：上升段**原始采样峰值** ≤ 目标 × 1.10。
+[3] 稳态精度：tset 之后所有块均的均值与目标偏差 ≤ ±2%。
 两侧各自判定，两侧都过才算该趟通过；组内 3 趟取中位再判一次。
+
+⚠ 本文件在 [1][2] 行里出现的 "t90 / post-t90 dev" 是 2026-10-31 之前的
+  旧口径（② 只看 t90 之后的块均偏离），不能直接当新标准的结论；
+  按 §10.1 重判，历史各趟基本都挂在 ②（起跑尖峰 +50~140%）。
+  新口径的复算命令：.\tools\tune_auto.ps1 metrics -Csv tune_data
 
 ----------------------------------------------------------------
 三、测试矩阵（共 6 趟）
@@ -40,3 +46,133 @@ XS2026 双电机直行（两侧同时闭环）测试记录
 四、逐趟数据（脚本自动追加，含时间戳）
 ----------------------------------------------------------------
 
+------------------------------------------------------------
+[2026-10-31 14:35:45] tag=both1000_r1 rep=1 target=1000 run=3000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_143545_both1000_r1_all_r1.csv
+  L: t90=200ms  post-t90 dev=9.9%  steady=999.4  err=-0.06%  sd=20.5  u_mean=1040  => [1]True [2]True [3]True
+  R: t90=200ms  post-t90 dev=5.6%  steady=1001  err=0.1%  sd=14  u_mean=942  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:37:00] tag=both1000_r2 rep=1 target=1000 run=3000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_143700_both1000_r2_all_r1.csv
+  L: t90=200ms  post-t90 dev=100.6%  steady=444.6  err=-55.54%  sd=504.2  u_mean=4419  => [1]True [2]False [3]False
+  R: t90=200ms  post-t90 dev=4.7%  steady=999.7  err=-0.03%  sd=11.5  u_mean=936  => [1]True [2]True [3]True
+  [异常说明 2026-10-31 14:38] 本趟左轮在 t≈1.5s 处速度塌到 0，uL 从 1.66s 起顶到 8000 直到 3s 结束（48 个采样），
+      fL 出现 -62/-12 的负值；同段右轮 fR 保持 963~1037、uR 983~1014 完全正常。
+      => 判定为左轮被外力卡住/抬起（机械或电气堵转），不是 PID 参数问题，增益暂不调整。
+      待查：左轮自由度、轮胎是否脱出、异物、负压吸地是否抬起左轮、电机/驱动温度、电池压降。
+------------------------------------------------------------
+[2026-10-31 14:38:45] tag=both1000_r2b rep=1 target=1000 run=3000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_143845_both1000_r2b_all_r1.csv
+  L: t90=300ms  post-t90 dev=4.4%  steady=998.9  err=-0.11%  sd=20  u_mean=1002  => [1]True [2]True [3]True
+  R: t90=200ms  post-t90 dev=8.6%  steady=1000.5  err=0.05%  sd=21.5  u_mean=976  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:40:16] tag=both1000_r3 rep=1 target=1000 run=3000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_144016_both1000_r3_all_r1.csv
+  L: t90=200ms  post-t90 dev=9.4%  steady=999.6  err=-0.04%  sd=26.2  u_mean=961  => [1]True [2]True [3]True
+  R: t90=200ms  post-t90 dev=8.4%  steady=1000.4  err=0.04%  sd=19.7  u_mean=966  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:41:24] tag=both1500_r1 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_144124_both1500_r1_all_r1.csv
+  L: t90=200ms  post-t90 dev=9.2%  steady=1505  err=0.33%  sd=13  u_mean=1302  => [1]True [2]True [3]True
+  R: t90=200ms  post-t90 dev=16%  steady=1500.6  err=0.04%  sd=10.9  u_mean=1277  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-10-31 14:44:40] tag=both1500_r2 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_144440_both1500_r2_all_r1.csv
+  L: t90=200ms  post-t90 dev=7.6%  steady=1502.5  err=0.17%  sd=32.3  u_mean=1324  => [1]True [2]True [3]True
+  R: t90=200ms  post-t90 dev=7.9%  steady=1503.4  err=0.23%  sd=22.8  u_mean=1284  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:45:35] tag=both1500_r3 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_144535_both1500_r3_all_r1.csv
+  L: t90=200ms  post-t90 dev=17.6%  steady=1486.9  err=-0.87%  sd=135.2  u_mean=1497  => [1]True [2]False [3]True
+  R: t90=200ms  post-t90 dev=6.2%  steady=1499.3  err=-0.04%  sd=23.8  u_mean=1259  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:48:00] tag=both1500_kpL184_r1 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.184 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_144800_both1500_kpL184_r1_all_r1.csv
+  L: t90=100ms  post-t90 dev=49.3%  steady=1486.4  err=-0.91%  sd=142.6  u_mean=1607  => [1]True [2]False [3]True
+  R: t90=200ms  post-t90 dev=10.5%  steady=1503.2  err=0.21%  sd=26.1  u_mean=1294  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-10-31 14:49:31] tag=both1500_kpL184_r2 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.184 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_144931_both1500_kpL184_r2_all_r1.csv
+  L: t90=200ms  post-t90 dev=26.1%  steady=1492.6  err=-0.49%  sd=208.1  u_mean=1604  => [1]True [2]False [3]True
+  R: t90=200ms  post-t90 dev=6.2%  steady=1501.1  err=0.07%  sd=29.8  u_mean=1281  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:50:26] tag=both1500_kpL184_r3 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.184 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_145026_both1500_kpL184_r3_all_r1.csv
+  L: t90=200ms  post-t90 dev=103.7%  steady=936.3  err=-37.58%  sd=733.9  u_mean=3370  => [1]True [2]False [3]False
+  R: t90=200ms  post-t90 dev=8.4%  steady=1500.7  err=0.05%  sd=38.8  u_mean=1338  => [1]True [2]True [3]True
+
+------------------------------------------------------------
+[结论 2026-10-31 14:51] 1500 mm/s 组、左轮 kp 降到 0.184 后 3 趟全部失控：
+  趟次                 L sd    L dev   L 稳态      L u_mean  R 判定
+  both1500_kpL184_r1   142.6   49.3%   1486.4      1607      全过
+  both1500_kpL184_r2   208.1   26.1%   1492.6      1604      全过
+  both1500_kpL184_r3   733.9  103.7%    936.3      3370(饱和8000) 全过
+  对照：同样条件下未改增益的 r1/r2 左轮 sd 只有 13/32，r3 起恶化到 135。
+  => 降 kp 无效且更差；左轮占空比需求从 1302 单调升到 3370 并出现 8000 饱和，
+     右轮在完全相同条件下始终合格（sd 26~39）。判定：不是增益问题，
+     是左轮机械/电气侧渐进性退化（r2→r3 之间发生）。暂停 1500 组测试，待硬件检查。
+------------------------------------------------------------
+[2026-10-31 14:52:11] tag=leftonly1500 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_145210_leftonly1500_l_r1.csv
+  L: t90=100ms  post-t90 dev=9.6%  steady=1509.4  err=0.62%  sd=7.5  u_mean=1494  => [1]True [2]True [3]True
+
+[诊断 2026-10-31 14:52] 右轮钉死、只驱动左轮（single-side，绕圈）1500 mm/s x 2 s，tf50，kp 已恢复 0.200：
+  L: t90 100ms  dev 9.6%  steady 1509.4(+0.62%)  sd 7.5  u_mean 1494  u_max 1664  => 三项全过，完全无振荡。
+  => 左轮本身在 1500 mm/s 下是健康的（机械 + 驱动 + 编码器都正常），
+     失控只在"两轮同时直行"时出现 => 问题来自直行时的横向约束/偏航耦合（擦地滑移），不是左轮自身。
+------------------------------------------------------------
+[2026-10-31 14:53:37] tag=both1500_nofan_A rep=1 target=1500 run=2000ms fan=0 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_145337_both1500_nofan_A_all_r1.csv
+  L: t90=200ms  post-t90 dev=12.3%  steady=1504.2  err=0.28%  sd=26.9  u_mean=1216  => [1]True [2]False [3]True
+  R: t90=100ms  post-t90 dev=8.7%  steady=1503.5  err=0.23%  sd=15.7  u_mean=1192  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:54:11] tag=both1200_bnd_B rep=1 target=1200 run=2000ms fan=50 travel=2400mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_145411_both1200_bnd_B_all_r1.csv
+  L: t90=200ms  post-t90 dev=135.8%  steady=903.8  err=-24.68%  sd=783.2  u_mean=3033  => [1]True [2]False [3]False
+  R: t90=200ms  post-t90 dev=11.7%  steady=1198.8  err=-0.1%  sd=18.3  u_mean=1160  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-10-31 14:55:33] tag=both1200_bnd_B2 rep=1 target=1200 run=2000ms fan=50 travel=2400mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_145532_both1200_bnd_B2_all_r1.csv
+  L: t90=300ms  post-t90 dev=5.2%  steady=1201.5  err=0.12%  sd=31  u_mean=1116  => [1]True [2]True [3]True
+  R: t90=200ms  post-t90 dev=7.3%  steady=1198  err=-0.16%  sd=24.1  u_mean=1156  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 14:59:22] tag=both1500_jam_r1 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_145922_both1500_jam_r1_all_r1.csv
+  L: t90=200ms  post-t90 dev=46.4%  steady=1461.1  err=-2.59%  sd=169.8  u_mean=1223  => [1]True [2]False [3]False
+  R: t90=200ms  post-t90 dev=40.6%  steady=1461.2  err=-2.59%  sd=147.9  u_mean=1335  => [1]True [2]False [3]False
+------------------------------------------------------------
+[2026-10-31 15:00:50] tag=both1500_jam_r2 rep=1 target=1500 run=2000ms fan=50 travel=3000mm
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  gains R: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_150050_both1500_jam_r2_all_r1.csv
+  L: t90=200ms  post-t90 dev=12.6%  steady=1505.4  err=0.36%  sd=34.1  u_mean=1230  => [1]True [2]False [3]True
+  R: t90=200ms  post-t90 dev=13.8%  steady=1505.3  err=0.35%  sd=25.4  u_mean=1328  => [1]True [2]False [3]True

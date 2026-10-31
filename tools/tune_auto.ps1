@@ -20,7 +20,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('help', 'check', 'gains', 'group', 'raw', 'halt', 'selftest')]
+    [ValidateSet('help', 'check', 'gains', 'group', 'raw', 'halt', 'selftest', 'metrics')]
     [string]$Mode = 'help',
 
     [string]$Port = 'COM12',
@@ -46,7 +46,10 @@ param(
     [string]$OutDir = '',
 
     # 每次实验的指标追加到这个 txt（留空 = 不写文件）；建议传工程的 双电机直行测试记录.txt
-    [string]$LogPath = ''
+    [string]$LogPath = '',
+
+    # metrics 模式：单个 csv 或一个目录，按当前三条指标离线重算（不碰串口）
+    [string]$Csv = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -233,10 +236,28 @@ function Drop-StalePrefix([object[]]$Rows) {
     return , $r
 }
 
+# 丢掉“停车尾巴”：`! <ms>` 到点后固件立刻停机，最后 1~2 帧速度掉到 0，
+# 混进 100ms 块均会把 post-t90 偏离虚增到 40% 以上（双侧同时挂的假异常）。
+# 只剥「从最后一帧往前、跨度不超过 250ms」的尾帧，避免把真堵转（>0.4s）也剥掉。
+function Trim-StopTail([object[]]$Rows, [int]$Target, [string]$Side1) {
+    $r = @($Rows)
+    if ($r.Count -lt 3) { return , $r }
+    $thr = [double]$Target * 0.5
+    $tEnd = $r[$r.Count - 1].ms
+    while ($r.Count -gt 2) {
+        $last = $r[$r.Count - 1]
+        if (($tEnd - $last.ms) -gt 250) { break }
+        $mine = if ($Side1 -eq 'r') { [double]$last.fR } else { [double]$last.fL }
+        if ($mine -ge $thr) { break }
+        $r = @($r[0..($r.Count - 2)])
+    }
+    return , $r
+}
+
 function Get-Metrics([object[]]$Rows, [int]$Target, [string]$Side1) {
     $res = [ordered]@{
         valid = $false; reason = ''; n = 0; dur_ms = 0; gaps = 0; gap_txt = ''
-        t90 = $null; t50 = $null; peak_raw = $null; peak_block = $null
+        t90 = $null; t50 = $null; tset = $null; peak_raw = $null; peak_block = $null
         overshoot_pct = $null; rise_dev_pct = $null; steady_mean = $null
         steady_err_pct = $null; steady_dev_pct = $null; steady_sd = $null
         p10 = $null; p90 = $null; out_band = $null; u_mean = $null; u_max = $null
@@ -272,13 +293,21 @@ function Get-Metrics([object[]]$Rows, [int]$Target, [string]$Side1) {
         if (-not $ALL.ContainsKey($b)) { $ALL[$b] = New-Object System.Collections.Generic.List[double] }
         $ALL[$b].Add([double]$r.f)
     }
-    $aStart = @(); $aMean = @()
+    $aStart = @(); $aMean = @(); $aCnt = @()
     foreach ($k in @($ALL.Keys | Sort-Object)) {
         $arr = $ALL[$k]
         $sum = 0.0; foreach ($v in $arr) { $sum += $v }
         $aStart += ($first + 100 * $k)
         $aMean += ($sum / $arr.Count)
+        $aCnt += $arr.Count
     }
+    # 只保留样本数 >= 3 的块：最后一块常常只剩 1~2 个点，噪声会把它的均值顶到带外，
+    # 让“已进入稳态”的判定永远成立不了（对齐块版本的经典坑）。
+    $kStart = @(); $kMean = @()
+    for ($i = 0; $i -lt $aMean.Count; $i++) {
+        if ($aCnt[$i] -ge 3) { $kStart += $aStart[$i]; $kMean += $aMean[$i] }
+    }
+    if ($kMean.Count -ge 2) { $aStart = $kStart; $aMean = $kMean }
 
     # ---- 有效窗口（去头 300 ms、去尾 100 ms）的分布统计
     $res.p10 = ([double[]]$win.f | Sort-Object)[[int][math]::Floor(0.10 * ($win.Count - 1))]
@@ -305,16 +334,36 @@ function Get-Metrics([object[]]$Rows, [int]$Target, [string]$Side1) {
         $res.rise_dev_pct = [math]::Round($dev, 1)
     }
 
-    # ---- 峰值与超调（全段块均）
+    # ---- ① 调节时间 tset（相对第一帧）
+    #     口径来自用户 2026-10-31 规范：“在 100-300ms 内达到目标速度（进入稳态无阶跃）”
+    #     判法：从某块起，其后所有块里至少 95% 落在 ±2% 带内（100 ms 块均，样本 >=3）。
+    #       - 用块均：块内 5 个采样平均，1 count = 9.18 mm/s 的量化噪声（500 时 1.8%）不会
+    #         把“已进入稳态”误判成“还没进带”；
+    #       - 允许 5% 的块越界：sd 12 mm/s 的正常稳态也偶尔有块擦出 ±20，要求 100% 会让
+    #         判定随噪声随机跳变（实测同一组好数据 tset 在 400~3500 ms 之间乱跳）。
+    $tol2 = $Target * 0.02
+    $tsetAbs = $aStart[$aStart.Count - 1] + 100
+    for ($i = 0; $i -lt $aMean.Count; $i++) {
+        $tot = 0; $inb = 0
+        for ($j = $i; $j -lt $aMean.Count; $j++) {
+            $tot++
+            if ([math]::Abs($aMean[$j] - $Target) -le $tol2) { $inb++ }
+        }
+        if ($tot -gt 0 -and (($inb * 100.0 / $tot) -ge 95.0)) { $tsetAbs = $aStart[$i] + 100; break }
+    }
+    $res.tset = $tsetAbs - $first
+
+    # ---- 峰值与超调（全段）
     $res.peak_raw = ($rows | Measure-Object -Property f -Maximum).Maximum
+    $res.overshoot_raw_pct = [math]::Round((([double]$res.peak_raw / $Target) - 1.0) * 100.0, 1)
     $res.peak_block = ($aMean | Measure-Object -Maximum).Maximum
     if ($null -ne $res.peak_block) {
         $res.overshoot_pct = [math]::Round((($res.peak_block / $Target) - 1.0) * 100.0, 1)
     }
 
-    # ---- 稳态：从 max(去头点, t90) 起的块；不足 2 块则取后 40%
+    # ---- 稳态：从 max(去头点, 调节时间 tset) 起的块；不足 2 块则取后 40%
     $stFrom = $s0
-    if ($null -ne $t90Abs -and $t90Abs -gt $stFrom) { $stFrom = $t90Abs }
+    if ($null -ne $tsetAbs -and $tsetAbs -gt $stFrom) { $stFrom = $tsetAbs }
     $st = @()
     for ($i = 0; $i -lt $aMean.Count; $i++) {
         if ($aStart[$i] -ge $stFrom) { $st += $aMean[$i] }
@@ -347,11 +396,13 @@ function Get-Metrics([object[]]$Rows, [int]$Target, [string]$Side1) {
 }
 
 function Get-VerDict($m, [int]$Target) {
-    # ① t90 ∈ [100,300] ms
-    $rise = ($null -ne $m.t90) -and ($m.t90 -ge 100) -and ($m.t90 -le 300)
-    # ② 到达 90% 之后的最大偏离 <= 10%
-    $band = ($null -ne $m.rise_dev_pct) -and ($m.rise_dev_pct -le 10.0)
-    # ③ 稳态块均偏差 <= ±2%（用均值判，最坏块 dev 只作参考）
+    # ① 快速响应（调节时间）：进入 ±2% 稳态带并保持到结束的时刻 ≤ 300 ms（块均判，100 ms 分辨率）
+    $rise = ($null -ne $m.tset) -and ($m.tset -le 300)
+    # ② 低超调（波动幅度）：整个上升过程的最大采集速度不超过目标的 110%（原始采样峰值）
+    $ov = $m.overshoot_raw_pct
+    if ($null -eq $ov) { $ov = $m.sm_overshoot_pct }
+    $band = ($null -ne $ov) -and ($ov -le 10.0)
+    # ③ 稳态精度：调节时间之后的块均均值误差 ≤ ±2%
     $steady = ($null -ne $m.steady_err_pct) -and ([math]::Abs($m.steady_err_pct) -le 2.0)
     return [pscustomobject]@{ A_rise = $rise; B_band = $band; C_steady = $steady; all = ($rise -and $band -and $steady) }
 }
@@ -361,12 +412,12 @@ function Fmt($v) { if ($null -eq $v) { return 'n/a' } return $v }
 function Show-Metrics($m, $v) {
     Write-Host ''
     Write-Host ('  n={0}  dur={1}ms  gaps={2} {3}' -f $m.n, $m.dur_ms, $m.gaps, $m.gap_txt) -ForegroundColor Gray
-    Write-Host ('  t90={0} ms   peak_raw={1}   peak_block={2}   overshoot={3}%' -f (Fmt $m.t90), $m.peak_raw, $m.peak_block, (Fmt $m.overshoot_pct))
+    Write-Host ('  tset={0} ms (t90={1})   peak_raw={2} ({3}%)   peak_block={4} ({5}%)' -f (Fmt $m.tset), (Fmt $m.t90), $m.peak_raw, (Fmt $m.overshoot_raw_pct), $m.peak_block, (Fmt $m.overshoot_pct))
     Write-Host ('  steady mean={0}  err={1}%  worstdev={2}%  sd={3}   p10={4} p90={5}  outband={6}' -f `
             (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_dev_pct), (Fmt $m.steady_sd), $m.p10, $m.p90, $m.out_band)
-    Write-Host ('  u_mean={0}  u_max={1}   post-t90 dev={2}%' -f $m.u_mean, $m.u_max, (Fmt $m.rise_dev_pct))
+    Write-Host ('  u_mean={0}  u_max={1}   post-tset dev={2}%' -f $m.u_mean, $m.u_max, (Fmt $m.rise_dev_pct))
     $c = 'Red'; if ($v.all) { $c = 'Green' }
-    Write-Host ('  [1]t90in100-300={0}  [2]post-t90dev<=10%={1}  [3]steadyerr<=2%={2}' -f $v.A_rise, $v.B_band, $v.C_steady) -ForegroundColor $c
+    Write-Host ('  [1]tset<=300ms={0}  [2]overshoot<=10%={1}  [3]|steady err|<=2%={2}' -f $v.A_rise, $v.B_band, $v.C_steady) -ForegroundColor $c
 }
 
 function Get-Median($vals) {
@@ -470,7 +521,7 @@ function Do-Group($sp) {
         }
         $bySide = @{}
         foreach ($sd in $sides) {
-            $m = Get-Metrics (Project-Side $rowsClean $sd) $Target $sd
+            $m = Get-Metrics (Project-Side (Trim-StopTail $rowsClean $Target $sd) $sd) $Target $sd
             if (-not $m.valid) { Write-Warning ("  rep {0} {1} invalid: {2}" -f $rep, $sd.ToUpper(), $m.reason) }
             $v = Get-VerDict $m $Target
             if ($sides.Count -gt 1) { Write-Host ("  ---- {0} side ----" -f $sd.ToUpper()) -ForegroundColor Cyan }
@@ -621,6 +672,35 @@ function Invoke-SelfTest {
     Write-Host '  both-side projection OK' -ForegroundColor Green
 }
 
+function Do-Metrics([string]$Path) {
+    $files = @()
+    if (Test-Path -LiteralPath $Path -PathType Container) {
+        $files = @(Get-ChildItem -LiteralPath $Path -Filter '*.csv' | Sort-Object Name)
+    }
+    elseif (Test-Path -LiteralPath $Path) { $files = @(Get-Item -LiteralPath $Path) }
+    else { throw "找不到 $Path" }
+    if ($files.Count -eq 0) { throw "$Path 下没有 csv" }
+
+    $fmt = '{0,-40} {1,-2} {2,6} {3,6} {4,7} {5,8} {6,7} {7,6} {8,9} {9}'
+    Write-Host ($fmt -f 'file', 'sd', 'tset', 't90', 'peak+%', 'steady', 'err%', 'sd', 'u_mean', 'verdict') -ForegroundColor Cyan
+    foreach ($f in $files) {
+        $lines = @(Get-Content -LiteralPath $f.FullName -Encoding UTF8)
+        $rows = Drop-StalePrefix (ConvertTo-FullRows $lines)
+        if ($rows.Count -lt 5) { Write-Host ('{0,-40} (too few rows)' -f $f.Name) -ForegroundColor DarkGray; continue }
+        foreach ($sd1 in @('l', 'r')) {
+            $tcol = @($rows | ForEach-Object { if ($sd1 -eq 'r') { $_.tR } else { $_.tL } } | Where-Object { $_ -gt 0 } | Sort-Object)
+            if ($tcol.Count -eq 0) { continue }
+            $tgt = [int]$tcol[[int][math]::Floor($tcol.Count / 2)]
+            $m = Get-Metrics (Project-Side (Trim-StopTail $rows $tgt $sd1) $sd1) $tgt $sd1
+            if (-not $m.valid) { Write-Host ($fmt -f $f.Name, $sd1, $m.reason, '', '', '', '', '', '', 'INVALID') -ForegroundColor DarkGray; continue }
+            $v = Get-VerDict $m $tgt
+            $c = 'Red'; if ($v.all) { $c = 'Green' }
+            $verdict = '{0}{1}{2}' -f $(if ($v.A_rise) { '1' } else { '-' }), $(if ($v.B_band) { '2' } else { '-' }), $(if ($v.C_steady) { '3' } else { '-' })
+            Write-Host ($fmt -f $f.Name, $sd1, (Fmt $m.tset), (Fmt $m.t90), (Fmt $m.overshoot_raw_pct), (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), $m.u_mean, $verdict) -ForegroundColor $c
+        }
+    }
+}
+
 function Show-Help {
     Write-Host 'XS2026 tune runner' -ForegroundColor Cyan
     Write-Host '  .\tools\tune_auto.ps1 check'
@@ -629,6 +709,7 @@ function Show-Help {
     Write-Host '  .\tools\tune_auto.ps1 group -Tag both -Target 1000 -RunMs 3000 -Reps 3 -Side all -AllowBoth -Fan 50'
     Write-Host '      -Side all：两侧同时闭环（直行），必须 -AllowBoth，且 Target×RunMs ≤ 3000 mm；每侧单独出指标'
     Write-Host '  .\tools\tune_auto.ps1 raw -Cmd "?"'
+    Write-Host '  .\tools\tune_auto.ps1 metrics -Csv tune_data\xxx.csv   # 离线重算三条指标（也可给目录）'
     Write-Host '  .\tools\tune_auto.ps1 halt'
     Write-Host '  .\tools\tune_auto.ps1 selftest'
 }
@@ -661,6 +742,11 @@ switch ($Mode) {
         if ($Cmd -eq '') { Write-Warning 'need -Cmd "..."'; exit 2 }
         $sp = Open-Port $Port
         try { [void](Send-Cmd $sp $Cmd 1500) } finally { Close-Port $sp }
+        exit 0
+    }
+    'metrics' {
+        if ($Csv -eq '') { Write-Warning 'need -Csv <file|dir>'; exit 2 }
+        Do-Metrics $Csv
         exit 0
     }
     'halt' {

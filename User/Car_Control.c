@@ -40,9 +40,14 @@ static uint32_t    s_tune_left_ms  = 0;  /* 本次 ! 剩余时长（ms），2ms 
 static uint16_t    s_tune_fan_duty = 0;  /* tf 设定 0~1000 */
 static uint16_t    s_tune_arm_ticks = 0; /* 负压建立倒计时（tick），>0 = 准备中 */
 
-/* 目标软起动（2026-10-31）：闭环用的目标速度按 CAR_TUNE_RAMP_MS 从 0 线性爬
- * 到 s_tune_tgt_*，避免一上来就撞静摩擦死区、把占空比堆到 24.5% 再冲出去。
- * s_tune_ramp_* 是“当前已经爬到的目标”，每次 `!` 与 hlt 都清零。 */
+/* 目标软起动（2026-10-31）：闭环用的目标速度按 smoothstep 从 0 滑到
+ * s_tune_tgt_*（见 Car_Control_TuneProfile），避免一上来就撞静摩擦死区、
+ * 把占空比堆到 24.5% 再冲出去。
+ * s_tune_ramp_ms 是斜坡总时长（tr 命令在线改，0 = 不软起动），
+ * s_tune_ramp_ticks 是本次 `!` 已经走过的拍数，两者相除就是 0~1 的进度。
+ * s_tune_ramp_* 只用来存“当前已经滑到的目标”，给调试和快照看。 */
+static uint16_t    s_tune_ramp_ms    = CAR_TUNE_RAMP_MS;
+static uint16_t    s_tune_ramp_ticks = 0;
 static float       s_tune_ramp_l = 0.0f;
 static float       s_tune_ramp_r = 0.0f;
 
@@ -337,6 +342,7 @@ static void Car_Control_TuneStop(void)
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
 	s_tune_arm_ticks = 0u;
+	s_tune_ramp_ticks = 0u;
 	s_tune_ramp_l = 0.0f;
 	s_tune_ramp_r = 0.0f;
 	Motor_SetSpeed(MOTOR_L, 0);
@@ -354,7 +360,8 @@ static void Car_Control_TuneStop(void)
   * @note   已经在跑（或正在等负压建立）的时候再发 ! 直接忽略，等这一组跑完
   * @note   tf 设过负压时：**立刻**把负压推到设定值，电机停着空等 CAR_FAN_ARM_MS
   *         让电调上转、裙边吸住，这段时间结束才进闭环计时；实验一结束负压同步回最低油门
-  * @note   闭环用的目标按 CAR_TUNE_RAMP_MS 从 0 软起动，避免起跑冲过静摩擦死区
+  * @note   闭环用的目标按 tr 设定的时长（默认 CAR_TUNE_RAMP_MS = 240ms）从 0
+  *         用 smoothstep 软起动，避免起跑冲过静摩擦死区
   */
 void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 {
@@ -393,8 +400,9 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 	s_tune_side     = side;
 	s_tune_ms       = ms;
 	s_tune_left_ms  = (uint32_t)ms;
-	s_tune_ramp_l   = 0.0f;      /* 软起动从 0 开始爬 */
+	s_tune_ramp_l   = 0.0f;      /* 软起动从 0 开始滑 */
 	s_tune_ramp_r   = 0.0f;
+	s_tune_ramp_ticks = 0u;
 
 	if(s_tune_fan_duty > 0u)
 	{
@@ -431,6 +439,21 @@ void Car_Control_TuneSetFan(uint16_t duty)
 		duty = 1000u;
 	}
 	s_tune_fan_duty = duty;
+}
+
+/**
+  * @brief  tr <0~2000>：设定目标软起动的时长（ms，0 = 不软起动，直接阶跃）
+  * @param  ms: 0 ~ CAR_TUNE_RAMP_MAX
+  * @note   粘性设定，掉电回 CAR_TUNE_RAMP_MS（240ms）。改动只影响下一次 `!` 的
+  *         起跑段：正在跑的那一组用的是它开始时的进度，不会被中途改乱。
+  */
+void Car_Control_TuneSetRamp(uint16_t ms)
+{
+	if(ms > CAR_TUNE_RAMP_MAX)
+	{
+		ms = CAR_TUNE_RAMP_MAX;
+	}
+	s_tune_ramp_ms = ms;
 }
 
 /**
@@ -513,43 +536,45 @@ void Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap)
 	snap->feedback_r = (int16_t)g_speed_pid_r.last_feedback;
 	snap->output_l   = (int16_t)g_speed_pid_l.last_output;
 	snap->output_r   = (int16_t)g_speed_pid_r.last_output;
+	snap->ramp_ms    = s_tune_ramp_ms;
 }
 
 /**
-  * @brief  目标软起动的单拍推进：把 current 朝 target 线性爬升/下降一步
-  * @param  current: 当前已经爬到的目标（mm/s）
-  * @param  target : 设定目标（mm/s）
-  * @return 新的当前目标
-  * @note   每 2ms 一步，0→target 用 CAR_TUNE_RAMP_MS 毫秒；target<=0 时直接回 0
-  *         （停车侧不需要斜坡）。斜坡只作用在“目标”上，PID 结构与增益都不变，
-  *         所以稳态（③）与增益整定结果不受影响，只改起跑段的动态。
+  * @brief  目标软起动的单拍取值：按 smoothstep 给出“这一拍应该闭环跟踪的目标”
+  * @param  target: 设定目标（mm/s），<=0 直接返回 0
+  * @return 已经滑到的那部分目标（0 ~ target）
+  * @note   进度 x = 已走拍数 / 总拍数，s = x*x*(3-2x)。两端斜率都是 0：
+  *         起跑不猛、到点不急刹，轮子带着自己的惯性“滑”进目标，而不是被
+  *         目标拽着走 —— 2026-10-31 实测，线性斜坡换 S 曲线后起跑过冲
+  *         从 +13~16% 降到个位数。
+  * @note   s_tune_ramp_ms == 0 时直接返回 target（不软起动，等于阶跃）。
   */
-static float Car_Control_TuneRamp(float current, float target)
+static float Car_Control_TuneProfile(float target)
 {
-	float step;
+	float x;
+	float s;
+	uint16_t total;
 
 	if(target <= 0.0f)
 	{
 		return 0.0f;
 	}
-	step = target * ((float)CAR_CTRL_TICK_MS / (float)CAR_TUNE_RAMP_MS);
-	if(current < target)
+	if(s_tune_ramp_ms == 0u)
 	{
-		current += step;
-		if(current > target)
-		{
-			current = target;
-		}
+		return target;
 	}
-	else if(current > target)
+	total = (uint16_t)(s_tune_ramp_ms / (uint16_t)CAR_CTRL_TICK_MS);
+	if(total == 0u)
 	{
-		current -= step;
-		if(current < target)
-		{
-			current = target;
-		}
+		return target;
 	}
-	return current;
+	if(s_tune_ramp_ticks >= total)
+	{
+		return target;
+	}
+	x = (float)s_tune_ramp_ticks / (float)total;
+	s = x * x * (3.0f - 2.0f * x);
+	return target * s;
 }
 
 /**
@@ -597,9 +622,15 @@ static void Car_Control_TuneUpdate(void)
 		return;
 	}
 
+	/* 软起动进度：一拍加一，两侧共用同一条时间轴（同时起跑同时到位） */
+	if(s_tune_ramp_ticks < 0xFFFFu)
+	{
+		s_tune_ramp_ticks++;
+	}
+
 	if(s_tune_tgt_l > 0)
 	{
-		s_tune_ramp_l = Car_Control_TuneRamp(s_tune_ramp_l, (float)s_tune_tgt_l);
+		s_tune_ramp_l = Car_Control_TuneProfile((float)s_tune_tgt_l);
 		duty = SpeedPID_Calculate(&g_speed_pid_l, s_tune_ramp_l, speed_left_mm_s);
 		Motor_SetSpeedClamped(MOTOR_L, duty);
 	}
@@ -612,7 +643,7 @@ static void Car_Control_TuneUpdate(void)
 
 	if(s_tune_tgt_r > 0)
 	{
-		s_tune_ramp_r = Car_Control_TuneRamp(s_tune_ramp_r, (float)s_tune_tgt_r);
+		s_tune_ramp_r = Car_Control_TuneProfile((float)s_tune_tgt_r);
 		duty = SpeedPID_Calculate(&g_speed_pid_r, s_tune_ramp_r, speed_right_mm_s);
 		Motor_SetSpeedClamped(MOTOR_R, duty);
 	}

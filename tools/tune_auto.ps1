@@ -37,6 +37,9 @@ param(
     # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
     [ValidateRange(0, 100)][int]$Fan = 0,
 
+    # 目标软起动时长（ms，0 = 不软起动）：每组发 tr<Ramp>，固件按 smoothstep 爬目标
+    [ValidateRange(0, 2000)][int]$Ramp = 240,
+
     # 两侧同时闭环（-Side all）是直行工况，必须显式解锁，并且目标×时间 ≤ MaxTravelMm
     [switch]$AllowBoth,
     [int]$MaxTravelMm = 3000,
@@ -123,7 +126,7 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
 #---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
 # 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
 # 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
-$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
+$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|tf\d+|tr\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
 
 function Assert-SafeCmd([string]$Text) {
     $t = $Text.Trim()
@@ -398,8 +401,10 @@ function Get-Metrics([object[]]$Rows, [int]$Target, [string]$Side1) {
 function Get-VerDict($m, [int]$Target) {
     # ① 快速响应（调节时间）：进入 ±2% 稳态带并保持到结束的时刻 ≤ 300 ms（块均判，100 ms 分辨率）
     $rise = ($null -ne $m.tset) -and ($m.tset -le 300)
-    # ② 低超调（波动幅度）：整个上升过程的最大采集速度不超过目标的 110%（原始采样峰值）
-    $ov = $m.overshoot_raw_pct
+    # ② 低超调（波动幅度）：上升过程中 100 ms 块均的峰值不超过目标的 110%
+    #    2026-10-31 用户定：与 ①③ 统一用 100 ms 块均；原始单帧只作参考（单帧仅 20~26 ms，
+    #    一个毛刺就能判挂，和「震荡幅度」的本意不符）。
+    $ov = $m.overshoot_pct
     if ($null -eq $ov) { $ov = $m.sm_overshoot_pct }
     $band = ($null -ne $ov) -and ($ov -le 10.0)
     # ③ 稳态精度：调节时间之后的块均均值误差 ≤ ±2%
@@ -417,7 +422,7 @@ function Show-Metrics($m, $v) {
             (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_dev_pct), (Fmt $m.steady_sd), $m.p10, $m.p90, $m.out_band)
     Write-Host ('  u_mean={0}  u_max={1}   post-tset dev={2}%' -f $m.u_mean, $m.u_max, (Fmt $m.rise_dev_pct))
     $c = 'Red'; if ($v.all) { $c = 'Green' }
-    Write-Host ('  [1]tset<=300ms={0}  [2]overshoot<=10%={1}  [3]|steady err|<=2%={2}' -f $v.A_rise, $v.B_band, $v.C_steady) -ForegroundColor $c
+    Write-Host ('  [1]tset<=300ms={0}  [2]peak_block<=10%={1}  [3]|steady err|<=2%={2}' -f $v.A_rise, $v.B_band, $v.C_steady) -ForegroundColor $c
 }
 
 function Get-Median($vals) {
@@ -468,7 +473,7 @@ function Do-Group($sp) {
     $sides = @($Side)
     if ($Side -eq 'all') { $sides = @('l', 'r') }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} travel={6}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan, $travel)
+    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} ramp={6}ms travel={7}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan, $Ramp, $travel)
 
     # 必须先进 tune：上电后默认 IDLE，此时 `!` 会被固件静默忽略（只回显、不闭环、不出 CSV）
     [void](Send-Cmd $sp 'tune' 400)
@@ -476,6 +481,10 @@ function Do-Group($sp) {
     # 负压设定（粘性）：每组都显式下发，避免沿用上一组的意外值
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
+
+    # 软起动时长（粘性）：同样每组显式下发
+    $rampReply = Send-Cmd $sp ('tr' + $Ramp) 400
+    $rampReply | Where-Object { $_ -match '\[tune\] ramp' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
 
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'
@@ -682,7 +691,7 @@ function Do-Metrics([string]$Path) {
     if ($files.Count -eq 0) { throw "$Path 下没有 csv" }
 
     $fmt = '{0,-40} {1,-2} {2,6} {3,6} {4,7} {5,8} {6,7} {7,6} {8,9} {9}'
-    Write-Host ($fmt -f 'file', 'sd', 'tset', 't90', 'peak+%', 'steady', 'err%', 'sd', 'u_mean', 'verdict') -ForegroundColor Cyan
+    Write-Host ($fmt -f 'file', 'sd', 'tset', 't90', 'peakB+%', 'steady', 'err%', 'sd', 'u_mean', 'verdict') -ForegroundColor Cyan
     foreach ($f in $files) {
         $lines = @(Get-Content -LiteralPath $f.FullName -Encoding UTF8)
         $rows = Drop-StalePrefix (ConvertTo-FullRows $lines)
@@ -696,7 +705,7 @@ function Do-Metrics([string]$Path) {
             $v = Get-VerDict $m $tgt
             $c = 'Red'; if ($v.all) { $c = 'Green' }
             $verdict = '{0}{1}{2}' -f $(if ($v.A_rise) { '1' } else { '-' }), $(if ($v.B_band) { '2' } else { '-' }), $(if ($v.C_steady) { '3' } else { '-' })
-            Write-Host ($fmt -f $f.Name, $sd1, (Fmt $m.tset), (Fmt $m.t90), (Fmt $m.overshoot_raw_pct), (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), $m.u_mean, $verdict) -ForegroundColor $c
+            Write-Host ($fmt -f $f.Name, $sd1, (Fmt $m.tset), (Fmt $m.t90), (Fmt $m.overshoot_pct), (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), $m.u_mean, $verdict) -ForegroundColor $c
         }
     }
 }

@@ -180,6 +180,11 @@ static void App_ProcessCommands(void)
 				Car_Control_TuneSetFan((uint16_t)cmd.arg * 10u);
 				break;
 
+			case APP_CMD_TUNE_RAMP:
+				/* tr：arg16 = 软起动时长 ms（0 = 不软起动），下次 `!` 生效 */
+				Car_Control_TuneSetRamp((cmd.arg16 > 0) ? (uint16_t)cmd.arg16 : 0u);
+				break;
+
 			default:
 				break;
 		}

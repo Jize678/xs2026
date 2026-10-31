@@ -169,10 +169,19 @@ static void App_ProcessCommands(void)
 				break;
 
 			case APP_CMD_TUNE_GAIN:
-				/* kl/il/dl/pt…：arg = 轮*3 + 项，arg16 = 增益×1000 */
-				Car_Control_TuneSetGain((cmd.arg >= 3u) ? CAR_WHEEL_RIGHT : CAR_WHEEL_LEFT,
-				                        (Car_TuneTerm_t)(cmd.arg % 3u),
-				                        (float)(cmd.arg16) / 1000.0f);
+				/* k/K + 项 + [档] + 侧 + 值：改 [轮][档][方向] 这一套里的一项。
+				 * arg = ((档*2 + 方向)*2 + 轮)*4 + 项（0~47），arg16 = 值×1000 */
+				{
+					uint8_t band = (uint8_t)(cmd.arg / 16u);
+					uint8_t rest = (uint8_t)(cmd.arg % 16u);
+					uint8_t down = (uint8_t)(rest / 8u);
+					uint8_t side = (uint8_t)((rest % 8u) / 4u);
+					uint8_t term = (uint8_t)(rest % 4u);
+
+					Car_Control_TuneSetParam((side == 0u) ? CAR_WHEEL_LEFT : CAR_WHEEL_RIGHT,
+					                         band, down, (Car_TuneTerm_t)term,
+					                         (float)(cmd.arg16) / 1000.0f);
+				}
 				break;
 
 			case APP_CMD_TUNE_FAN:
@@ -181,8 +190,10 @@ static void App_ProcessCommands(void)
 				break;
 
 			case APP_CMD_TUNE_FF:
-				/* kff：arg16 = 前馈系数×1000（占空比/(mm/s)），0 = 关掉前馈 */
-				Car_Control_TuneSetFF((float)(cmd.arg16) / 1000.0f);
+				/* kff（小写）= 升速方向、KFF（大写）= 降速方向，都是“一把设全部档”；
+				 * arg = 0 升速 / 1 降速，arg16 = 系数×1000（有符号，±2000） */
+				Car_Control_TuneSetFFAll((cmd.arg == 1u) ? 1u : 0u,
+				                         (float)(cmd.arg16) / 1000.0f);
 				break;
 
 			default:

@@ -307,6 +307,7 @@ static void Serial_SendSpeedTest(void)
  *----------------------------------------------------------------------------*/
 static uint16_t s_num        = 0;   /* 已输入的数值（0~999） */
 static uint8_t  s_num_digits = 0;   /* 已输入的数字个数 */
+static uint8_t  s_num_neg    = 0;   /* 1 = 输入了前导负号（只有前馈系数用得到） */
 static uint8_t  s_num_cmd    = 0;   /* 0=无；'L'=左轮；'R'=右轮；'F'=风扇；'D'=延时风扇(ff) */
 static uint16_t s_frac       = 0;   /* 小数部分（千分位） */
 static uint16_t s_frac_div   = 0;   /* 0=整数态；10/100/1000=已收几位小数 */
@@ -322,8 +323,15 @@ static uint8_t  s_test_state = 0;
 /* 调参模式的多字符指令进度 */
 static uint8_t  s_tune_state = 0;   /* 0=空闲 1=tu 2=tun */
 static uint8_t  s_hlt_state  = 0;   /* 0=空闲 1=h 2=hl（hlt） */
-static uint8_t  s_k_state    = 0;   /* 0=空闲 1=k 2=kp/ki/kd（等 l/r） */
-static uint8_t  s_k_term     = 0;   /* 1=kp 2=ki 3=kd（s_k_state=2 时有效） */
+static uint8_t  s_k_state    = 0;   /* 0=空闲 1=k 2=kp/ki/kd（等档位或 l/r） 3=kf（等 f/档位/l/r） 4=kf+档（等 l/r） */
+static uint8_t  s_k_term     = 0;   /* 0=kp 1=ki 2=kd 3=ff（s_k_state>=2 时有效） */
+static uint8_t  s_k_upper    = 0;   /* 1 = 用大写 K 起的头 ⇒ 改“降速集”参数 */
+static uint8_t  s_k_band     = 0xFFu; /* 命令里点的档位 0~2；0xFF = 没写（按档 0） */
+/* 定下一条参数命令要改哪一套：[轮][档][方向] 里的哪一项 */
+static uint8_t  s_p_side     = 0;   /* 0 = 左轮，1 = 右轮 */
+static uint8_t  s_p_band     = 0;   /* 0~2 */
+static uint8_t  s_p_down     = 0;   /* 0 = 升速集，1 = 降速集 */
+static uint8_t  s_p_term     = 0;   /* 0 = kp，1 = ki，2 = kd，3 = ff */
 static uint8_t  s_v_state    = 0;   /* 0=空闲 1=v（等 l/r） */
 static uint8_t  s_ex_state  = 0;   /* 0=空闲 1=等数字 2=数字 3=等侧别 4=已收 a 5=已收 al */
 static uint16_t s_ex_ms     = 0;   /* `! <ms>` 里的时长 */
@@ -334,28 +342,46 @@ static uint8_t  s_tune_was  = 0;   /* 上一拍的 running，用来打印 [tune]
  * 调参模式（tune）：打印当前增益、输出一行 CSV
  *   增益内部是 float，这里一律换成 milli 整数打印（microlib 不支持 %f）
  *----------------------------------------------------------------------------*/
+/* 打印一套参数（某一轮、某一档、某个方向）：前馈可为负，单独处理符号 */
+static void Serial_LogGainSet(uint8_t side, uint8_t band, uint8_t down)
+{
+	const Car_TuneGainSet_t *g = Car_Control_TuneGetSet(side, band, down);
+	int kp = (int)(g->kp * 1000.0f + 0.5f);
+	int ki = (int)(g->ki * 1000.0f + 0.5f);
+	int kd = (int)(g->kd * 1000.0f + 0.5f);
+	int ff = (int)((g->ff < 0.0f) ? (g->ff * 1000.0f - 0.5f) : (g->ff * 1000.0f + 0.5f));
+	int af = (ff < 0) ? -ff : ff;
+
+	Serial_Log("[tune] %c b%u %s kp=%d.%03d ki=%d.%03d kd=%d.%03d ff=%s%d.%03d\r\n",
+	           (side == 0u) ? 'L' : 'R', (unsigned int)band,
+	           (down != 0u) ? "dn" : "up",
+	           kp / 1000, kp % 1000, ki / 1000, ki % 1000, kd / 1000, kd % 1000,
+	           (ff < 0) ? "-" : "", af / 1000, af % 1000);
+}
+
 static void Serial_SendTuneParams(void)
 {
 	Car_TuneSnapshot_t s;
-	int lp, li, ld, rp, ri, rd;
+	uint8_t side;
+	uint8_t band;
 
 	Car_Control_TuneSnapshot(&s);
-	lp = (int)(g_speed_pid_l.param.kp * 1000.0f + 0.5f);
-	li = (int)(g_speed_pid_l.param.ki * 1000.0f + 0.5f);
-	ld = (int)(g_speed_pid_l.param.kd * 1000.0f + 0.5f);
-	rp = (int)(g_speed_pid_r.param.kp * 1000.0f + 0.5f);
-	ri = (int)(g_speed_pid_r.param.ki * 1000.0f + 0.5f);
-	rd = (int)(g_speed_pid_r.param.kd * 1000.0f + 0.5f);
 
-	/* 一行一次 Serial_Log：Serial_Log 自己的缓冲只有 96 字节，拼成一大串会被截断 */
-	Serial_Log("[tune] L kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n",
-	           lp / 1000, lp % 1000, li / 1000, li % 1000, ld / 1000, ld % 1000);
-	Serial_Log("[tune] R kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n",
-	           rp / 1000, rp % 1000, ri / 1000, ri % 1000, rd / 1000, rd % 1000);
-	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u limit=%d fan=%u/1000 ff=%u.%03u\r\n",
+	/* 12 套参数：2 轮 × 3 档（0=0~0.6、1=0.6~1.2、2=1.2 以上 m/s）× 升/降。
+	 * 一行一次 Serial_Log：它自己的缓冲只有 96 字节，拼成一大串会被截断。 */
+	for(side = 0u; side < 2u; side++)
+	{
+		for(band = 0u; band < CAR_TUNE_BAND_COUNT; band++)
+		{
+			Serial_LogGainSet(side, band, 0u);
+			Serial_LogGainSet(side, band, 1u);
+		}
+	}
+
+	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u dir=%s band=%u limit=%d fan=%u/1000\r\n",
 	           (int)s.target_l, (int)s.target_r, (unsigned int)s.running,
-	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty,
-	           (unsigned int)(s.ff_milli / 1000u), (unsigned int)(s.ff_milli % 1000u));
+	           (s.dir_down != 0u) ? "DN" : "UP", (unsigned int)s.band,
+	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty);
 }
 /* `! <ms> <l|r|all>` 收齐后：忙就提示，空闲就下发定时闭环 */
 static void Serial_TuneRunStart(uint8_t side)
@@ -401,8 +427,10 @@ static void Serial_CommitNumber(void)
 {
 	uint16_t pct = s_num;
 	uint8_t  cmd = s_num_cmd;
+	uint8_t  neg = s_num_neg;
 
 	s_num_cmd = 0;
+	s_num_neg = 0;
 
 	/* 延时风扇测试（ff）：先等 5 秒，再按给定占空比吹 5 秒，随后自动停 */
 	if(cmd == 'D')
@@ -478,47 +506,93 @@ static void Serial_CommitNumber(void)
 		return;
 	}
 
-	/* 调参模式的目标阶跃前馈（kff；cmd = 'K'）：千分比，支持小数 */
-	if(cmd == 'K')
+	/* 调参模式的阶跃前馈：小写 kff = 升速段，大写 KFF = 降速段；
+	 * 降速段可以给负值（跳变瞬间多留一点扭矩），所以这里是有符号的千分比 */
+	if((cmd == 'K') || (cmd == 'M'))
 	{
-		uint32_t milli = (uint32_t)s_num * 1000u + (uint32_t)s_frac;
+		int32_t milli = (int32_t)s_num * 1000 + (int32_t)s_frac;
+		int32_t am;
+		uint8_t dn = (cmd == 'M') ? 1u : 0u;
 
 		if(s_num_digits == 0u)
 		{
-			Serial_Log("ff: kff0.6 = 0.6 duty/(mm/s), kff0 = off\r\n");
+			Serial_Log("ff: kff0.6 / KFF-0.2 = duty per mm/s (up / down)\r\n");
 			return;
 		}
-		if(milli > 2000u)
+		if(neg != 0u)
 		{
-			milli = 2000u;
+			milli = -milli;
 		}
-		App_PostCmdArg(APP_CMD_TUNE_FF, 0, (int16_t)milli);
-		Serial_Log("[tune] ff=%d.%03d duty/(mm/s)%s\r\n", (int)(milli / 1000u), (int)(milli % 1000u),
-		           (milli == 0u) ? " (off)" : "");
+		if(milli > 2000)
+		{
+			milli = 2000;
+		}
+		if(milli < -2000)
+		{
+			milli = -2000;
+		}
+		am = (milli < 0) ? -milli : milli;
+		App_PostCmdArg(APP_CMD_TUNE_FF, dn, (int16_t)milli);
+		Serial_Log("[tune] ff %s=%s%d.%03d duty/(mm/s)%s\r\n", (dn != 0u) ? "DN" : "UP",
+		           (milli < 0) ? "-" : "", (int)(am / 1000), (int)(am % 1000),
+		           (milli == 0) ? " (off)" : "");
 		return;
 	}
 
-	/* 调参模式的增益（kpl/kpr 等）：cmd = 'a'..'f'，支持小数 */
-	if((cmd >= 'a') && (cmd <= 'f'))
+	/* 调参模式的分段参数：k/K + 项 + [档] + 侧 + 值，改 [轮][档][方向] 里的一项。
+	 * 例：kpl0.2（档 0 升速左 kp）、kp1l0.2（档 1）、kfl0.3（档 0 升速左 ff）、
+	 *     Kf2r-0.2（档 2 降速右 ff，负值只对前馈有意义） */
+	if(cmd == 'G')
 	{
-		uint32_t milli  = (uint32_t)s_num * 1000u + (uint32_t)s_frac;
-		uint8_t  idx    = (uint8_t)(cmd - 'a');
-		uint8_t  wheel  = (uint8_t)(idx / 3u);
-		uint8_t  term   = (uint8_t)(idx % 3u);
-		static const char *s_term[3] = { "kp", "ki", "kd" };
+		int32_t milli;
+		uint8_t idx;
+		static const char *s_term[4] = { "kp", "ki", "kd", "ff" };
 
 		if(s_num_digits == 0u)
 		{
-			Serial_Log("gain: kpl0.6 kil0.5 kdl0.05 kpr0.6 kir0.55 kdr0.06\r\n");
+			Serial_Log("gain: kpl0.2 | kp1l0.2 | kfl0.3 | Kf2r-0.2 (k term band side value)\r\n");
 			return;
 		}
-		if(milli > 32767u)
+
+		milli = (int32_t)s_num * 1000 + (int32_t)s_frac;
+		if(s_p_term == 3u)
 		{
-			milli = 32767u;
+			if(neg != 0u)
+			{
+				milli = -milli;         /* 只有前馈允许负值 */
+			}
+			if(milli > 2000)
+			{
+				milli = 2000;
+			}
+			if(milli < -2000)
+			{
+				milli = -2000;
+			}
 		}
-		App_PostCmdArg(APP_CMD_TUNE_GAIN, (uint8_t)(wheel * 3u + term), (int16_t)milli);
-		Serial_Log("[tune] %s %s=%d.%03d\r\n", (wheel != 0u) ? "R" : "L", s_term[term],
-		           (int)(milli / 1000u), (int)(milli % 1000u));
+		else if(milli > 32767)
+		{
+			milli = 32767;
+		}
+
+		idx = (uint8_t)(((s_p_band * 2u + s_p_down) * 2u + s_p_side) * 4u + s_p_term);
+		App_PostCmdArg(APP_CMD_TUNE_GAIN, idx, (int16_t)milli);
+
+		if(s_p_term == 3u)
+		{
+			int32_t am = (milli < 0) ? -milli : milli;
+
+			Serial_Log("[tune] %c b%u %s ff=%s%d.%03d%s\r\n", (s_p_side != 0u) ? 'R' : 'L',
+			           (unsigned int)s_p_band, (s_p_down != 0u) ? "DN" : "UP",
+			           (milli < 0) ? "-" : "", (int)(am / 1000), (int)(am % 1000),
+			           (milli == 0) ? " (off)" : "");
+		}
+		else
+		{
+			Serial_Log("[tune] %c b%u %s %s=%d.%03d\r\n", (s_p_side != 0u) ? 'R' : 'L',
+			           (unsigned int)s_p_band, (s_p_down != 0u) ? "DN" : "UP",
+			           s_term[s_p_term], (int)(milli / 1000), (int)(milli % 1000));
+		}
 		return;
 	}
 
@@ -561,12 +635,34 @@ static void Serial_CommitNumber(void)
 /*------------------------------------------------------------------------------
  * 单字节指令解析
  *----------------------------------------------------------------------------*/
+/* "k/K + 项 + [档] + 侧" 收齐：转到数字输入态，并记下要改哪一套的哪一项 */
+static void Serial_BeginParam(uint8_t ch, uint8_t term)
+{
+	s_num        = 0;
+	s_num_digits = 0;
+	s_num_neg    = 0;
+	s_frac       = 0;
+	s_frac_div   = 0;
+	s_num_cmd    = 'G';
+	s_p_term     = term;
+	s_p_band     = (s_k_band == 0xFFu) ? 0u : s_k_band;
+	s_p_down     = (s_k_upper != 0u) ? 1u : 0u;
+	s_p_side     = ((ch == 'r') || (ch == 'R')) ? 1u : 0u;
+}
+
 static void Serial_HandleByte(uint8_t ch)
 {
 
 	/* 数字输入态：只收数字，其它字符用来结束输入 */
 	if(s_num_cmd != 0u)
 	{
+		/* 前导负号：只有前馈系数（kff / KFF）用得到，其它命令提交时忽略符号 */
+		if((ch == '-') && (s_num_digits == 0u) && (s_num == 0u) && (s_frac_div == 0u))
+		{
+			s_num_neg = 1u;
+			return;
+		}
+
 		if(ch >= '0' && ch <= '9')
 		{
 			if(s_frac_div == 0u)
@@ -794,7 +890,8 @@ static void Serial_HandleByte(uint8_t ch)
 			App_PostCmd(APP_CMD_TUNE_ENTER, 0);
 			Serial_Log("[tune] enter: ! <ms> l|r|all | hlt | vl/vr<mm/s> | kpl0.6 | kq | 0 exit\r\n");
 			Serial_Log("[tune] tf0~100: vacuum for the next ! (0 = no fan)\r\n");
-			Serial_Log("[tune] kff0.6: target-step feedforward, duty per mm/s (0 = off)\r\n");
+			Serial_Log("[tune] kpl0.2 / kp1l0.2 / Kf2r-0.2: k/K term band side value\r\n");
+			Serial_Log("[tune] kff0.3 / KFF-0.2 still sets every band at once\r\n");
 			return;
 		}
 	}
@@ -805,6 +902,8 @@ static void Serial_HandleByte(uint8_t ch)
 	{
 		if((ch == 'k') || (ch == 'K'))
 		{
+			/* 小写 k = 升速集，大写 K = 降速集（整套 kp/ki/kd，也管前馈） */
+			s_k_upper = (ch == 'K') ? 1u : 0u;
 			s_k_state = 1;
 			return;
 		}
@@ -819,64 +918,83 @@ static void Serial_HandleByte(uint8_t ch)
 		}
 		if((ch == 'p') || (ch == 'P'))
 		{
-			s_k_term  = 1u;
+			s_k_term  = 0u;          /* kp */
+			s_k_band  = 0xFFu;
 			s_k_state = 2;
 			return;
 		}
 		if((ch == 'i') || (ch == 'I'))
 		{
-			s_k_term  = 2u;
+			s_k_term  = 1u;          /* ki */
+			s_k_band  = 0xFFu;
 			s_k_state = 2;
 			return;
 		}
 		if((ch == 'd') || (ch == 'D'))
 		{
-			s_k_term  = 3u;
+			s_k_term  = 2u;          /* kd */
+			s_k_band  = 0xFFu;
 			s_k_state = 2;
 			return;
 		}
-		/* kff：目标阶跃前馈系数（kff0.6 = 0.6 占空比/(mm/s)） */
+		/* kf<档><侧><值> = 单档前馈；kff<值> = 旧别名（全部档一起设） */
 		if((ch == 'f') || (ch == 'F'))
 		{
+			s_k_band  = 0xFFu;
 			s_k_state = 3;
 			return;
 		}
 		s_k_state = 0;
 	}
-	else if(s_k_state == 3u)
+	else if(s_k_state == 2u)
 	{
-		s_k_state = 0;
-		if((ch == 'f') || (ch == 'F'))
+		/* kp/ki/kd 之后：可选一个档位数字，然后必须给侧别 l/r */
+		if((ch >= '0') && (ch <= '2') && (s_k_band == 0xFFu))
 		{
-			s_num = 0;
-			s_num_digits = 0;
-			s_frac = 0;
-			s_frac_div = 0;
-			s_num_cmd = 'K';
-		}
-		return;
-	}
-	else
-	{
-		uint8_t base = (uint8_t)('a' + (s_k_term - 1u));
-
-		s_k_state = 0;
-		if((ch == 'l') || (ch == 'L'))
-		{
-			s_num = 0;
-			s_num_digits = 0;
-			s_frac = 0;
-			s_frac_div = 0;
-			s_num_cmd = base;
+			s_k_band = (uint8_t)(ch - '0');
 			return;
 		}
-		if((ch == 'r') || (ch == 'R'))
+		s_k_state = 0;
+		if((ch == 'l') || (ch == 'L') || (ch == 'r') || (ch == 'R'))
 		{
-			s_num = 0;
+			Serial_BeginParam(ch, s_k_term);
+			return;
+		}
+	}
+	else if(s_k_state == 3u)
+	{
+		/* kf 之后：'f' = 旧别名 kff；数字 = 档位；l/r = 档 0 */
+		if((ch == 'f') || (ch == 'F'))
+		{
+			s_k_state = 0;
+			s_num        = 0;
 			s_num_digits = 0;
-			s_frac = 0;
-			s_frac_div = 0;
-			s_num_cmd = (uint8_t)(base + 3u);
+			s_num_neg    = 0;
+			s_frac       = 0;
+			s_frac_div   = 0;
+			s_num_cmd    = (s_k_upper != 0u) ? 'M' : 'K';   /* 'K' = 升速，'M' = 降速 */
+			return;
+		}
+		if((ch >= '0') && (ch <= '2'))
+		{
+			s_k_band  = (uint8_t)(ch - '0');
+			s_k_state = 4;
+			return;
+		}
+		s_k_state = 0;
+		if((ch == 'l') || (ch == 'L') || (ch == 'r') || (ch == 'R'))
+		{
+			Serial_BeginParam(ch, 3u);   /* 3 = ff */
+			return;
+		}
+	}
+	else if(s_k_state == 4u)
+	{
+		/* kf + 档位之后：只等侧别 */
+		s_k_state = 0;
+		if((ch == 'l') || (ch == 'L') || (ch == 'r') || (ch == 'R'))
+		{
+			Serial_BeginParam(ch, 3u);
 			return;
 		}
 	}

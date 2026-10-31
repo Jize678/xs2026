@@ -169,3 +169,8 @@
   500->1000: pre=495.7 (sd 35.4)  settle=1100ms  peak_raw=1257 (+25.7%)  peak_block=+7.3%  steady=992.2  err=-0.78%  sd=14.3  u_mean=988  => [1]False [2]False [3]True
   1000->1500: pre=981.5 (sd 45.8)  settle=1400ms  peak_raw=1800 (+20%)  peak_block=+2.5%  steady=1482  err=-1.2%  sd=12  u_mean=1319  => [1]False [2]False [3]True
   1500->1000: pre=1496.2 (sd 49.9)  settle=1100ms  peak_raw=704 (+29.6%)  peak_block=+14.8%  steady=997.4  err=-0.26%  sd=9.4  u_mean=934  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-10-31 18:02:30] profile tag=ff600_l_r1 rep=1 side=l steps=500:1500,1000:1500,1500:1500,1000:1500,500:1500 fan=50
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_180230_ff600_l_r1_profile_l_r1.csv
+  1000->1500: pre=805 (sd 928.5)  settle=600ms  peak_raw=2632 (+75.5%)  peak_block=+5.2%  steady=1499.4  err=-0.04%  sd=13.3  u_mean=1034  => [1]False [2]False [3]True

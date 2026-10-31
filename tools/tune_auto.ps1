@@ -30,15 +30,25 @@ param(
     [int]$RunMs = 1500,
     [int]$Reps = 3,
 
+    # 升速集增益（小写 k 命令）：<0 = 不动固件里的值
     [double]$Kp = -1,
     [double]$Ki = -1,
     [double]$Kd = -1,
+    # 降速集增益（大写 K 命令）：<0 = 不动
+    [double]$KpDn = -1,
+    [double]$KiDn = -1,
+    [double]$KdDn = -1,
 
     # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
     [ValidateRange(0, 100)][int]$Fan = 0,
 
-    # 目标阶跃前馈（kff）：千分比占空比/(mm/s)，0 = 关掉前馈；固件默认 0.600
+    # 目标阶跃前馈，千分比占空比/(mm/s)。
+    #   -FF   = 兼容用法：升速段和降速段都设成这个值
+    #   -FFUp / -FFDn = 分别给升速段 / 降速段（降速段允许负值，范围 -2000~2000）
+    # 固件按“目标跳变方向”自动切换并锁存整套参数，所以每组只在开头设一次。
     [ValidateRange(0, 2000)][int]$FF = 600,
+    [int]$FFUp = -9999,
+    [int]$FFDn = -9999,
 
     # step 模式：先稳住 -From 这个速度，-HoldMs 之后把目标阶跃到 -Target，量整定时间
     [int]$From = 500,
@@ -77,18 +87,37 @@ $script:SP = $null
 $script:Buf = New-Object System.Text.StringBuilder
 
 function Open-Port([string]$Name) {
-    $sp = New-Object System.IO.Ports.SerialPort $Name, 115200, `
-        ([System.IO.Ports.Parity]::None), 8, ([System.IO.Ports.StopBits]::One)
-    $sp.ReadTimeout = 200
-    $sp.WriteTimeout = 1000
-    $sp.DtrEnable = $false
-    $sp.RtsEnable = $false
-    $sp.Open()
-    Start-Sleep -Milliseconds 200
-    $sp.DiscardInBuffer()
-    [void]$script:Buf.Clear()
-    Write-Info ("[port] {0} open @115200 8N1" -f $Name)
-    return $sp
+    # 蓝牙虚拟串口在「上一个进程刚关闭」时经常报 The semaphore timeout period has expired，
+    # 隔 1~2 s 再来一次就好。这里重试 5 次，每次重建 SerialPort 对象，失败的那个直接 Dispose。
+    $lastErr = $null
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        $sp = New-Object System.IO.Ports.SerialPort $Name, 115200, `
+            ([System.IO.Ports.Parity]::None), 8, ([System.IO.Ports.StopBits]::One)
+        $sp.ReadTimeout = 200
+        $sp.WriteTimeout = 1000
+        $sp.DtrEnable = $false
+        $sp.RtsEnable = $false
+        try {
+            $sp.Open()
+            Start-Sleep -Milliseconds 200
+            $sp.DiscardInBuffer()
+            [void]$script:Buf.Clear()
+            if ($attempt -gt 1) {
+                Write-Info ("[port] {0} open @115200 8N1 (attempt {1})" -f $Name, $attempt)
+            } else {
+                Write-Info ("[port] {0} open @115200 8N1" -f $Name)
+            }
+            return $sp
+        } catch {
+            $lastErr = $_.Exception.Message.Trim()
+            $sp.Dispose()
+            if ($attempt -lt 5) {
+                Write-Info ("[port] open failed: {0} -> retry in 1500 ms" -f $lastErr)
+                Start-Sleep -Milliseconds 1500
+            }
+        }
+    }
+    throw ("无法打开 {0}: {1}" -f $Name, $lastErr)
 }
 
 function Close-Port($sp) {
@@ -134,7 +163,7 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
 #---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
 # 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
 # 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
-$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|kff\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
+$Script:SafeCmdPattern = '^(\?|kq|[kK][pidf][0-2]?[lr]-?\d+(\.\d+)?|[kK]ff-?\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
 
 function Assert-SafeCmd([string]$Text) {
     $t = $Text.Trim()
@@ -162,24 +191,65 @@ function Send-Cmd($sp, [string]$Text, [int]$WaitMs = 600) {
 #---------------------------------------------------------------- 增益与参数
 function Format-Gain([double]$v) { return $v.ToString('0.000', $Inv) }
 
-function Set-Gains($sp, [string]$Side1, [double]$kp, [double]$ki, [double]$kd) {
-    if ($kp -ge 0) { [void](Send-Cmd $sp ('kp' + $Side1 + (Format-Gain $kp)) 250) }
-    if ($ki -ge 0) { [void](Send-Cmd $sp ('ki' + $Side1 + (Format-Gain $ki)) 250) }
-    if ($kd -ge 0) { [void](Send-Cmd $sp ('kd' + $Side1 + (Format-Gain $kd)) 250) }
+# 有符号格式（前馈可负）：固件的数字解析只认前导 '-'，不能发 '+'
+function Format-GainSigned([double]$v) {
+    $s = [math]::Abs($v).ToString('0.000', $Inv)
+    if ($v -lt 0) { return '-' + $s }
+    return $s
 }
 
+# 分段参数：小写 k = 升速方向，大写 K = 降速方向（-Down）。值 <0 表示这项不改。
+# 固件按 [轮][档][方向] 存 12 套（档 0/1/2 = 0~0.6 / 0.6~1.2 / ≥1.2 m/s），
+# 这里把 3 个档位都发一遍（= 先给三档同一套值）。想只改某一档，用 `cmd` 子命令，
+# 例如：cmd -Cmd kp1l0.25（档 1 升速左轮 kp）。
+function Set-Gains($sp, [string]$Side1, [double]$kp, [double]$ki, [double]$kd, [switch]$Down) {
+    $pre = if ($Down) { 'K' } else { 'k' }
+    foreach ($band in @('0', '1', '2')) {
+        if ($kp -ge 0) { [void](Send-Cmd $sp ($pre + 'p' + $band + $Side1 + (Format-Gain $kp)) 160) }
+        if ($ki -ge 0) { [void](Send-Cmd $sp ($pre + 'i' + $band + $Side1 + (Format-Gain $ki)) 160) }
+        if ($kd -ge 0) { [void](Send-Cmd $sp ($pre + 'd' + $band + $Side1 + (Format-Gain $kd)) 160) }
+    }
+}
+
+# kq 的输出格式（2026-10-31 深夜改成分段）：
+#   [tune] L b0 up kp=0.200 ki=0.080 kd=0.040 ff=0.300
+#   [tune] L b0 dn kp=0.200 ki=0.080 kd=0.000 ff=-0.200
+#   ... 每侧 3 档 × 升/降 = 12 行 ...
+#   [tune] tgt L=0 R=0 mm/s run=0 dir=UP band=0 limit=8000 fan=0/1000
+# 为兼容老代码，${w}_${d}_kp 这类键取**档 0** 的值；每档另有 ${w}_b{n}_${d}_kp。
 function Parse-TuneParams([string[]]$Lines) {
-    $p = [ordered]@{ L_kp = $null; L_ki = $null; L_kd = $null; R_kp = $null; R_ki = $null; R_kd = $null; tgtL = $null; tgtR = $null; run = $null; limit = $null; raw = $Lines }
-    foreach ($l in $Lines) {
-        if ($l -match '^\[tune\] ([LR]) kp=(-?\d+)\.(\d{3}) ki=(-?\d+)\.(\d{3}) kd=(-?\d+)\.(\d{3})') {
-            $w = $Matches[1]
-            $p["${w}_kp"] = [double]::Parse($Matches[2] + '.' + $Matches[3], $Inv)
-            $p["${w}_ki"] = [double]::Parse($Matches[4] + '.' + $Matches[5], $Inv)
-            $p["${w}_kd"] = [double]::Parse($Matches[6] + '.' + $Matches[7], $Inv)
+    $p = [ordered]@{ tgtL = $null; tgtR = $null; run = $null; limit = $null; dir = $null; fan = $null; band = $null; raw = $Lines }
+    foreach ($w in @('L', 'R')) {
+        foreach ($d in @('up', 'dn')) {
+            $p["${w}_${d}_kp"] = $null; $p["${w}_${d}_ki"] = $null
+            $p["${w}_${d}_kd"] = $null; $p["${w}_${d}_ff"] = $null
+            foreach ($b in @('0', '1', '2')) {
+                $p["${w}_b${b}_${d}_kp"] = $null; $p["${w}_b${b}_${d}_ki"] = $null
+                $p["${w}_b${b}_${d}_kd"] = $null; $p["${w}_b${b}_${d}_ff"] = $null
+            }
         }
-        elseif ($l -match '^\[tune\] tgt L=(-?\d+) R=(-?\d+) mm/s run=(\d+) limit=(-?\d+)') {
+    }
+    $GainRe = '^\[tune\] ([LR]) b([0-2]) (up|dn) kp=(-?\d+)\.(\d{3}) ki=(-?\d+)\.(\d{3}) kd=(-?\d+)\.(\d{3}) ff=(-?)(\d+)\.(\d{3})'
+    foreach ($l in $Lines) {
+        if ($l -match $GainRe) {
+            $w = $Matches[1]; $b = $Matches[2]; $d = $Matches[3]
+            $ffv = [double]::Parse($Matches[11] + '.' + $Matches[12], $Inv)
+            if ($Matches[10] -eq '-') { $ffv = -$ffv }
+            $kp = [double]::Parse($Matches[4] + '.' + $Matches[5], $Inv)
+            $ki = [double]::Parse($Matches[6] + '.' + $Matches[7], $Inv)
+            $kd = [double]::Parse($Matches[8] + '.' + $Matches[9], $Inv)
+            $p["${w}_b${b}_${d}_kp"] = $kp; $p["${w}_b${b}_${d}_ki"] = $ki
+            $p["${w}_b${b}_${d}_kd"] = $kd; $p["${w}_b${b}_${d}_ff"] = $ffv
+            if ($b -eq '0') {
+                $p["${w}_${d}_kp"] = $kp; $p["${w}_${d}_ki"] = $ki
+                $p["${w}_${d}_kd"] = $kd; $p["${w}_${d}_ff"] = $ffv
+            }
+        }
+        elseif ($l -match '^\[tune\] tgt L=(-?\d+) R=(-?\d+) mm/s run=(\d+) dir=(UP|DN) band=(\d+) limit=(-?\d+) fan=(\d+)/1000') {
             $p.tgtL = [int]$Matches[1]; $p.tgtR = [int]$Matches[2]
-            $p.run = [int]$Matches[3]; $p.limit = [int]$Matches[4]
+            $p.run = [int]$Matches[3]; $p.dir = $Matches[4]
+            $p.band = [int]$Matches[5]
+            $p.limit = [int]$Matches[6]; $p.fan = [int]$Matches[7]
         }
     }
     return [pscustomobject]$p
@@ -449,9 +519,11 @@ function Do-Check($sp) {
     [void](Send-Cmd $sp 'tune' 700)
     Write-Info '== step 3: read back gains (kq) =='
     $p = Get-TuneParams $sp
-    Write-Host ('  L: kp={0} ki={1} kd={2}' -f $p.L_kp, $p.L_ki, $p.L_kd) -ForegroundColor Green
-    Write-Host ('  R: kp={0} ki={1} kd={2}' -f $p.R_kp, $p.R_ki, $p.R_kd) -ForegroundColor Green
-    Write-Host ('  tgt L={0} R={1} run={2} limit={3}' -f $p.tgtL, $p.tgtR, $p.run, $p.limit) -ForegroundColor Green
+    foreach ($k in @('L', 'R')) {
+        Write-Host ('  {0} up: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $p."${k}_up_ff") -ForegroundColor Green
+        Write-Host ('  {0} dn: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_dn_kp", $p."${k}_dn_ki", $p."${k}_dn_kd", $p."${k}_dn_ff") -ForegroundColor Green
+    }
+    Write-Host ('  tgt L={0} R={1} run={2} dir={3} limit={4} fan={5}' -f $p.tgtL, $p.tgtR, $p.run, $p.dir, $p.limit, $p.fan) -ForegroundColor Green
     return $p
 }
 
@@ -472,6 +544,26 @@ function Send-Targets($sp, [string[]]$Sides, [int]$Tgt) {
     }
 }
 
+function Set-FF($sp, [int]$Milli) {
+    # 直接写不等待：kff 也要在阶跃前一刻生效，不能因为等回显多出几十毫秒盲区
+    if ($Milli -lt 0) { return }
+    $txt = 'kff' + ([double]$Milli / 1000.0).ToString('0.000', [Globalization.CultureInfo]::InvariantCulture)
+    Assert-SafeCmd $txt
+    Write-Host ("  >> " + $txt) -ForegroundColor Yellow
+    $sp.Write($txt + "`r`n")
+}
+
+# -FFUp / -FFDn 默认 -9999 = 没指定；只说了一个方向时，另一个方向跟 -FF
+function Get-FFUp { if ($FFUp -ne -9999) { return $FFUp } return $FF }
+function Get-FFDn { if ($FFDn -ne -9999) { return $FFDn } return $FF }
+
+# 固件从 2026-10-31 晚起有“升速集 / 降速集”两套参数，按目标跳变方向自动切换
+# 并锁存整段，所以这里只需要在每组开头各设一次：小写 kff = 升速、大写 KFF = 降速。
+function Set-FFPair($sp) {
+    [void](Send-Cmd $sp ('kff' + (Format-GainSigned ([double](Get-FFUp) / 1000.0))) 250)
+    [void](Send-Cmd $sp ('KFF' + (Format-GainSigned ([double](Get-FFDn) / 1000.0))) 250)
+}
+
 function Do-Group($sp) {
     # 安全规则（速度环调参说明.md §9.0）：
     #   默认一次只许一侧闭环 —— 车绕另一侧轮子转圈，行程有界；
@@ -488,16 +580,21 @@ function Do-Group($sp) {
 
     # 负压设定（粘性）：每组都显式下发，避免沿用上一组的意外值
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    Set-FFPair $sp
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
 
-    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
-        Write-Info '-- set gains'
-        foreach ($sd in $sides) { Set-Gains $sp $sd $Kp $Ki $Kd }
+    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0 -or $KpDn -ge 0 -or $KiDn -ge 0 -or $KdDn -ge 0) {
+        Write-Info '-- set gains (up / dn)'
+        foreach ($sd in $sides) {
+            Set-Gains $sp $sd $Kp $Ki $Kd
+            Set-Gains $sp $sd $KpDn $KiDn $KdDn -Down
+        }
     }
     $p = Get-TuneParams $sp
     foreach ($sd in $sides) {
         $k = $sd.ToUpper()
-        Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
+        Write-Host ('  now {0} up: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $p."${k}_up_ff") -ForegroundColor Green
+        Write-Host ('  now {0} dn: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_dn_kp", $p."${k}_dn_ki", $p."${k}_dn_kd", $p."${k}_dn_ff") -ForegroundColor Green
     }
 
     $recs = @()
@@ -551,7 +648,7 @@ function Do-Group($sp) {
                         (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $Target, $RunMs, $Fan, $travel))
             foreach ($sd in $sides) {
                 $k = $sd.ToUpper()
-                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd"))
+                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd"))
             }
             $log.Add(('  CSV: {0}' -f $file))
             foreach ($sd in $sides) {
@@ -604,7 +701,7 @@ function Do-Group($sp) {
         $k = $sd.ToUpper()
         $line = '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
             (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $sd, $Target, `
-            $p."${k}_kp", $p."${k}_ki", $p."${k}_kd", $med.rep_count, `
+            $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $med.rep_count, `
             $med.t90, $med.peak, $med.rise_dev, $med.steady, $med.err, $med.dev, $med.sd, $med.outband, $med.u_mean
         if (-not (Test-Path $sum)) {
             Set-Content -Path $sum -Value 'time,tag,side,target,kp,ki,kd,reps,t90,peak_block,rise_dev,steady,err_pct,dev_pct,sd,outband,u_mean' -Encoding ASCII
@@ -759,16 +856,20 @@ function Do-Step($sp) {
 
     [void](Send-Cmd $sp 'tune' 400)
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
-    [void](Send-Cmd $sp ('kff' + ([double]$FF / 1000.0).ToString('0.000', [Globalization.CultureInfo]::InvariantCulture)) 300)
+    Set-FFPair $sp
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
-    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
-        Write-Info '-- set gains'
-        foreach ($sd in $sides) { Set-Gains $sp $sd $Kp $Ki $Kd }
+    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0 -or $KpDn -ge 0 -or $KiDn -ge 0 -or $KdDn -ge 0) {
+        Write-Info '-- set gains (up / dn)'
+        foreach ($sd in $sides) {
+            Set-Gains $sp $sd $Kp $Ki $Kd
+            Set-Gains $sp $sd $KpDn $KiDn $KdDn -Down
+        }
     }
     $p = Get-TuneParams $sp
     foreach ($sd in $sides) {
         $k = $sd.ToUpper()
-        Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
+        Write-Host ('  now {0} up: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $p."${k}_up_ff") -ForegroundColor Green
+        Write-Host ('  now {0} dn: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_dn_kp", $p."${k}_dn_ki", $p."${k}_dn_kd", $p."${k}_dn_ff") -ForegroundColor Green
     }
 
     $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
@@ -823,7 +924,7 @@ function Do-Step($sp) {
                         (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $From, $Target, $RunMs, $HoldMs, $Fan, $travel))
             foreach ($sd in $sides) {
                 $k = $sd.ToUpper()
-                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd"))
+                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd"))
             }
             $log.Add(('  CSV: {0}' -f $file))
             foreach ($sd in $sides) {
@@ -863,7 +964,7 @@ function Do-Step($sp) {
         $k = $sd.ToUpper()
         Add-Content -Path $sum -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
                 (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $sd, $From, $Target, `
-                $p."${k}_kp", $p."${k}_ki", $p."${k}_kd", $valid.Count, $settle, $over, $err, $sdv, $um, $ps, $po, $pc) -Encoding ASCII
+                $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $valid.Count, $settle, $over, $err, $sdv, $um, $ps, $po, $pc) -Encoding ASCII
     }
 }
 
@@ -914,15 +1015,17 @@ function Do-Profile($sp) {
 
     [void](Send-Cmd $sp 'tune' 400)
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
-    [void](Send-Cmd $sp ('kff' + ([double]$FF / 1000.0).ToString('0.000', [Globalization.CultureInfo]::InvariantCulture)) 300)
+    Set-FFPair $sp
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
-    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
-        Write-Info '-- set gains'
+    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0 -or $KpDn -ge 0 -or $KiDn -ge 0 -or $KdDn -ge 0) {
+        Write-Info '-- set gains (up / dn)'
         Set-Gains $sp $Side $Kp $Ki $Kd
+        Set-Gains $sp $Side $KpDn $KiDn $KdDn -Down
     }
     $p = Get-TuneParams $sp
     $k = $Side.ToUpper()
-    Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
+    Write-Host ('  now {0} up: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $p."${k}_up_ff") -ForegroundColor Green
+    Write-Host ('  now {0} dn: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_dn_kp", $p."${k}_dn_ki", $p."${k}_dn_kd", $p."${k}_dn_ff") -ForegroundColor Green
 
     for ($rep = 1; $rep -le $Reps; $rep++) {
         Write-Info ("-- rep {0}/{1}" -f $rep, $Reps)
@@ -949,10 +1052,12 @@ function Do-Profile($sp) {
                 # 立刻写、不 sleep 不 Collect：把“发指令 → 继续收数”的空窗压到最小。
                 # 固件 TX 环形缓冲只有 128 字节（≈3 行 CSV），250ms 空窗能丢 ~9 行；
                 # 实测阶跃处出现过 283ms 盲区，会把真实的超调峰值整段吞掉。
+                $next = $plan[$si + 1]
+                # 前馈不用在这里切：固件按目标跳变方向自动选升速集/降速集并锁存
                 $cmd = if ($Side -eq 'r') { 'vr' } else { 'vl' }
-                Assert-SafeCmd ($cmd + $plan[$si + 1].speed)
-                Write-Host ("  >> " + $cmd + $plan[$si + 1].speed) -ForegroundColor Yellow
-                $sp.Write($cmd + $plan[$si + 1].speed + "`r`n")
+                Assert-SafeCmd ($cmd + $next.speed)
+                Write-Host ("  >> " + $cmd + $next.speed) -ForegroundColor Yellow
+                $sp.Write($cmd + $next.speed + "`r`n")
             }
         }
 
@@ -979,7 +1084,7 @@ function Do-Profile($sp) {
             $log.Add('------------------------------------------------------------')
             $log.Add(('[{0}] profile tag={1} rep={2} side={3} steps={4} fan={5}' -f `
                         (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $Side, $spec, $Fan))
-            $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd"))
+            $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd"))
             $log.Add(('  CSV: {0}' -f $file))
         }
 
@@ -1005,7 +1110,7 @@ function Do-Profile($sp) {
                 }
                 Add-Content -Path $sum -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
                         (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $Side, $trans[$j].from, $trans[$j].to, `
-                        $p."${k}_kp", $p."${k}_ki", $p."${k}_kd", 1, $m.settle, $m.overshoot_pct, $m.steady_err_pct, `
+                        $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", 1, $m.settle, $m.overshoot_pct, $m.steady_err_pct, `
                         $m.steady_sd, $m.u_mean, $v.A_settle, $v.B_over, $v.C_steady) -Encoding ASCII
             }
         }
@@ -1047,14 +1152,25 @@ function Invoke-SelfTest {
 
     Write-Info '== selftest: kq parsing =='
     $fake = @(
-        '[tune] L kp=1.230 ki=0.560 kd=0.000',
-        '[tune] R kp=0.864 ki=0.270 kd=0.045',
-        '[tune] tgt L=500 R=0 mm/s run=0 limit=4000'
+        '[tune] L b0 up kp=0.200 ki=0.080 kd=0.040 ff=0.300',
+        '[tune] L b0 dn kp=0.150 ki=0.080 kd=0.000 ff=-0.200',
+        '[tune] L b1 up kp=0.210 ki=0.085 kd=0.045 ff=0.280',
+        '[tune] L b1 dn kp=0.150 ki=0.080 kd=0.000 ff=-0.200',
+        '[tune] R b0 up kp=0.200 ki=0.080 kd=0.040 ff=0.300',
+        '[tune] R b0 dn kp=0.200 ki=0.080 kd=0.045 ff=0.000',
+        '[tune] R b2 up kp=0.195 ki=0.078 kd=0.050 ff=0.250',
+        '[tune] R b2 dn kp=0.200 ki=0.080 kd=0.045 ff=0.000',
+        '[tune] tgt L=500 R=0 mm/s run=0 dir=UP band=0 limit=4000 fan=0/1000'
     )
     $q = Parse-TuneParams $fake
-    Write-Host ('  L: {0}/{1}/{2}   R: {3}/{4}/{5}   tgt={6}/{7} run={8} limit={9}' -f `
-            $q.L_kp, $q.L_ki, $q.L_kd, $q.R_kp, $q.R_ki, $q.R_kd, $q.tgtL, $q.tgtR, $q.run, $q.limit) -ForegroundColor Green
-    if ($q.L_kp -ne 1.23 -or $q.R_kd -ne 0.045 -or $q.limit -ne 4000) { Write-Warning '  kq parse MISMATCH'; exit 1 }
+    Write-Host ('  L b0 up {0}/{1}/{2}/{3}  b1 up kp={4}  L dn ff={5}  R b2 up kd={6}  R dn kd={7}  tgt={8}/{9} band={10} limit={11} dir={12}' -f `
+            $q.L_b0_up_kp, $q.L_b0_up_ki, $q.L_b0_up_kd, $q.L_b0_up_ff,
+        $q.L_b1_up_kp, $q.L_dn_ff, $q.R_b2_up_kd, $q.R_dn_kd,
+        $q.tgtL, $q.tgtR, $q.band, $q.limit, $q.dir) -ForegroundColor Green
+    if ($q.L_b0_up_kp -ne 0.2 -or $q.L_b1_up_kp -ne 0.21 -or $q.L_dn_ff -ne -0.2 -or
+        $q.R_b2_up_kd -ne 0.05 -or $q.R_dn_kd -ne 0.045 -or $q.limit -ne 4000 -or $q.dir -ne 'UP') {
+        Write-Warning '  kq parse MISMATCH'; exit 1
+    }
     Write-Host '  kq parse OK' -ForegroundColor Green
 
     Write-Info '== selftest: csv row parsing (both sides) =='

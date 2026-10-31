@@ -43,10 +43,95 @@ static uint16_t    s_tune_arm_ticks = 0; /* 负压建立倒计时（tick），>0
 /* 目标阶跃前馈（kff，占空比/(mm/s)）：vl/vr 一改，就把速度环输出按 K·Δ目标
  * 直接挪过去，不让积分去"追"。s_tune_prev_l/r 记着上一拍真正下发过的目标，
  * 一旦检测到跳变就补一次前馈；停车/重新发车时清 0，这样起跑那一下也吃到前馈
- * （0→目标 同样是阶跃，而且是最大的一次）。 */
-static float       s_tune_ff     = CAR_TUNE_FF_DEFAULT;
+ * （0→目标 同样是阶跃，而且是最大的一次）。
+ *
+ * 2026-10-31 晚：升级成“升速/降速两套”（kp/ki/kd + 前馈各一套），按目标跳变的
+ * 方向切换并**锁存整段**。减速段 D 项在阶跃处等于再补一脚刹车，方向是反的；
+ * 减速段的理想做法是“少撤一点扭矩、让摩擦慢慢把速度拉下来”，所以给负前馈。*/
+
+/* 12 套参数：s_tune_set[轮][档][方向]——下标 0 = 左轮 / 1 = 右轮，档 0~2，
+ * 方向 0 = 升速段 / 1 = 降速段。左右增益本来就可以不同（实测左轮 kd 要大一些
+ * 才压得住超调），三档之间的差别更大（低速段静摩擦占比大、高速段纹波更明显），
+ * 所以既不能左右共用、也不能三档共用一套。
+ * 初值在 Car_TuneSetsInit() 里给（静态初始化写 12 套太罗嗦）。 */
+static Car_TuneGainSet_t s_tune_set[2][CAR_TUNE_BAND_COUNT][2];
+static uint8_t     s_tune_dir_down = 0u;  /* 1 = 当前段是降速段（按跳变方向锁存） */
+static uint8_t     s_tune_band = 0u;      /* 当前段用的档位（按目标速度锁存） */
 static int16_t     s_tune_prev_l = 0;
 static int16_t     s_tune_prev_r = 0;
+
+/* 12 套参数的初值：升速集 kd 0.040 / ff 0.60，降速集 kd 0 / ff 0
+ * （两个方向需要的补偿符号相反，理由见文件头注释）。上电调用一次。 */
+static void Car_TuneSetsInit(void)
+{
+	uint8_t side;
+	uint8_t band;
+
+	for(side = 0u; side < 2u; side++)
+	{
+		for(band = 0u; band < CAR_TUNE_BAND_COUNT; band++)
+		{
+			s_tune_set[side][band][0].kp = 0.200f;
+			s_tune_set[side][band][0].ki = 0.080f;
+			s_tune_set[side][band][0].kd = 0.040f;
+			s_tune_set[side][band][0].ff = CAR_TUNE_FF_DEFAULT;
+
+			s_tune_set[side][band][1].kp = 0.200f;
+			s_tune_set[side][band][1].ki = 0.080f;
+			s_tune_set[side][band][1].kd = CAR_TUNE_DN_KD_DEFAULT;
+			s_tune_set[side][band][1].ff = CAR_TUNE_FF_DN_DEFAULT;
+		}
+	}
+}
+
+/* 增益限幅（负数无意义，上限 CAR_TUNE_GAIN_MAX） */
+static float Car_Control_ClampGain(float value)
+{
+	if(value < 0.0f)
+	{
+		value = 0.0f;
+	}
+	if(value > CAR_TUNE_GAIN_MAX)
+	{
+		value = CAR_TUNE_GAIN_MAX;
+	}
+	return value;
+}
+
+/* 按目标速度选档：档 0 < 600、档 1 = 600~1199、档 2 >= 1200 mm/s。
+ * 用目标而不是实测：实测在目标附近抖，按实测选档会在边界反复横跳。 */
+static uint8_t Car_TuneBandOf(int16_t target)
+{
+	if(target >= CAR_TUNE_BAND2_MM_S)
+	{
+		return 2u;
+	}
+	if(target >= CAR_TUNE_BAND1_MM_S)
+	{
+		return 1u;
+	}
+	return 0u;
+}
+
+/* 把一项增益写进某一套参数（kp/ki/kd） */
+static void Car_TuneStoreGain(Car_TuneGainSet_t *set, Car_TuneTerm_t term, float value)
+{
+	switch(term)
+	{
+		case CAR_TUNE_KI: set->ki = value; break;
+		case CAR_TUNE_KD: set->kd = value; break;
+		case CAR_TUNE_KP:
+		default:          set->kp = value; break;
+	}
+}
+
+/* 把整套参数写进 PID 控制器（前馈不走这里，前馈只在跳变那一拍补） */
+static void Car_TuneWritePid(SpeedPID_Controller_t *pid, const Car_TuneGainSet_t *set)
+{
+	pid->param.kp = set->kp;
+	pid->param.ki = set->ki;
+	pid->param.kd = set->kd;
+}
 
 /* 目标直接下发（2026-10-31 晚 改回）：曾经在 0→目标 的起跑段加过 smoothstep
  * 软起动（`tr` 可调），但实测需求是“速度阶跃 500↔1000↔1500 能不能在 100~300ms
@@ -162,6 +247,12 @@ void Car_Control_Init(void)
 	s_mode = CAR_MODE_IDLE;
 	star_car = 0;
 
+	Car_TuneSetsInit();                 /* 12 套分段参数复位到默认值 */
+	s_tune_dir_down = 0u;
+	s_tune_band     = 0u;
+	s_tune_prev_l   = 0;
+	s_tune_prev_r   = 0;
+
 	Led_Status_Init();
 	Motor_StopAll();
 	Motor_Disable();
@@ -184,6 +275,7 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
 	s_tune_arm_ticks = 0;               /* 切模式时取消负压解锁倒计时，避免旧倒计时残留 */
+	s_tune_band      = 0u;              /* 档位/方向随模式切换一起复位 */
 	s_test_ticks = 0;                   /* 切模式时把电机测试的计时清零 */
 	s_test_phase = 0;
 	s_wheel_ticks = 0;                  /* 切模式时取消单轮测试 */
@@ -351,6 +443,8 @@ static void Car_Control_TuneStop(void)
 	s_tune_arm_ticks = 0u;
 	s_tune_prev_l = 0;                    /* 停车后重新发车，起跑那一下也吃到前馈 */
 	s_tune_prev_r = 0;
+	s_tune_dir_down = 0u;                 /* 下一段从“升速集”开始 */
+	s_tune_band     = 0u;                 /* 档位也回到档 0，等下次切目标时重选 */
 	Motor_SetSpeed(MOTOR_L, 0);
 	Motor_SetSpeed(MOTOR_R, 0);
 	SpeedPID_Reset(&g_speed_pid_l);
@@ -404,6 +498,8 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 	SpeedPID_Reset(&g_speed_pid_r);
 	s_tune_prev_l   = 0;                  /* 新一组 ! 从干净的输出状态开始 */
 	s_tune_prev_r   = 0;
+	s_tune_dir_down = 0u;                 /* 起跑段按升速集走 */
+	s_tune_band     = 0u;                 /* 档位由第一次目标跳变决定 */
 	s_tune_side     = side;
 	s_tune_ms       = ms;
 	s_tune_left_ms  = (uint32_t)ms;
@@ -446,22 +542,43 @@ void Car_Control_TuneSetFan(uint16_t duty)
 }
 
 /**
-  * @brief  kff：设定目标阶跃前馈系数（占空比/(mm/s)，0 = 关掉前馈）
-  * @param  duty_per_mm_s: 0 ~ CAR_TUNE_FF_MAX
-  * @note   纯开环补偿，只影响“目标跳变那一下”，稳态精度仍由积分项决定；
-  *         掉电不保存。实测静态增益约 0.60（500→693、1000→945、1500→1300）。
+  * @brief  前馈系数限幅（正负对称，±CAR_TUNE_FF_MAX）
   */
-void Car_Control_TuneSetFF(float duty_per_mm_s)
+static float Car_Control_ClampFF(float ff)
 {
-	if(duty_per_mm_s < 0.0f)
+	if(ff < -CAR_TUNE_FF_MAX)
 	{
-		duty_per_mm_s = 0.0f;
+		ff = -CAR_TUNE_FF_MAX;
 	}
-	if(duty_per_mm_s > CAR_TUNE_FF_MAX)
+	if(ff > CAR_TUNE_FF_MAX)
 	{
-		duty_per_mm_s = CAR_TUNE_FF_MAX;
+		ff = CAR_TUNE_FF_MAX;
 	}
-	s_tune_ff = duty_per_mm_s;
+	return ff;
+}
+
+/**
+  * @brief  kff / KFF（旧别名）：把**某个方向的 3 档 × 2 轮**前馈一起设
+  * @param  down: 0 = 升速方向，1 = 降速方向
+  * @param  duty_per_mm_s: -CAR_TUNE_FF_MAX ~ +CAR_TUNE_FF_MAX
+  * @note   分段以后前馈本来就该逐档给（低速段静态增益更大、需要的补偿更多），
+  *         这个别名只是给“一把全设”的场合用；单档请用 kf<档>l<值>。
+  *         纯开环补偿，只影响“目标跳变那一下”，稳态精度仍由积分项决定。
+  */
+void Car_Control_TuneSetFFAll(uint8_t down, float duty_per_mm_s)
+{
+	float   ff = Car_Control_ClampFF(duty_per_mm_s);
+	uint8_t side;
+	uint8_t band;
+	uint8_t dir = (down != 0u) ? 1u : 0u;
+
+	for(side = 0u; side < 2u; side++)
+	{
+		for(band = 0u; band < CAR_TUNE_BAND_COUNT; band++)
+		{
+			s_tune_set[side][band][dir].ff = ff;
+		}
+	}
 }
 
 /**
@@ -500,28 +617,56 @@ void Car_Control_TuneSetTarget(Car_Wheel_t wheel, int16_t mm_s)
 }
 
 /**
-  * @brief  在线改某一侧的一个增益（不写 Flash，掉电丢）
+  * @brief  在线改 [轮][档][方向] 这一套参数里的某一项（kp/ki/kd/ff）
+  * @param  wheel: 哪一侧；band: 0~2；down: 0 = 升速集 / 1 = 降速集
+  * @param  term : CAR_TUNE_KP/KI/KD/FF
+  * @note   只有“当前段正好是这一档、这个方向”时才立刻写进 PID，否则只存起来，
+  *         等下次进入该档该方向时自然生效。增益限 0~CAR_TUNE_GAIN_MAX，
+  *         前馈允许负值（限 ±CAR_TUNE_FF_MAX）。掉电不保存。
   */
-void Car_Control_TuneSetGain(Car_Wheel_t wheel, Car_TuneTerm_t term, float value)
+void Car_Control_TuneSetParam(Car_Wheel_t wheel, uint8_t band, uint8_t down,
+                              Car_TuneTerm_t term, float value)
 {
-	SpeedPID_Controller_t *pid = (wheel == CAR_WHEEL_LEFT) ? &g_speed_pid_l : &g_speed_pid_r;
+	uint8_t side = (wheel == CAR_WHEEL_LEFT) ? 0u : 1u;
+	uint8_t dir;
 
-	if(value < 0.0f)
+	if(band >= CAR_TUNE_BAND_COUNT)
 	{
-		value = 0.0f;
+		band = (uint8_t)(CAR_TUNE_BAND_COUNT - 1u);
 	}
-	if(value > CAR_TUNE_GAIN_MAX)
+	dir = (down != 0u) ? 1u : 0u;
+
+	if(term == CAR_TUNE_FF)
 	{
-		value = CAR_TUNE_GAIN_MAX;
+		s_tune_set[side][band][dir].ff = Car_Control_ClampFF(value);
+	}
+	else
+	{
+		Car_TuneStoreGain(&s_tune_set[side][band][dir], term, Car_Control_ClampGain(value));
 	}
 
-	switch(term)
+	if((s_tune_dir_down == dir) && (s_tune_band == band))
 	{
-		case CAR_TUNE_KI: pid->param.ki = value; break;
-		case CAR_TUNE_KD: pid->param.kd = value; break;
-		case CAR_TUNE_KP:
-		default:          pid->param.kp = value; break;
+		Car_TuneWritePid((side == 0u) ? &g_speed_pid_l : &g_speed_pid_r,
+		                 &s_tune_set[side][band][dir]);
 	}
+}
+
+/**
+  * @brief  取某一套参数（只读，串口 kq 打印用）
+  * @note   不把 12 套塞进快照结构：那是 192 字节，串口任务栈只有 288 字节。
+  */
+const Car_TuneGainSet_t *Car_Control_TuneGetSet(uint8_t side, uint8_t band, uint8_t down)
+{
+	if(side > 1u)
+	{
+		side = 1u;
+	}
+	if(band >= CAR_TUNE_BAND_COUNT)
+	{
+		band = (uint8_t)(CAR_TUNE_BAND_COUNT - 1u);
+	}
+	return &s_tune_set[side][band][(down != 0u) ? 1u : 0u];
 }
 
 /**
@@ -536,7 +681,8 @@ void Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap)
 	snap->running    = (s_tune_run != 0u) ? 1u : 0u;
 	snap->arming     = (s_tune_arm_ticks != 0u) ? 1u : 0u;
 	snap->fan_duty   = s_tune_fan_duty;
-	snap->ff_milli   = (uint16_t)(s_tune_ff * 1000.0f + 0.5f);
+	snap->dir_down   = s_tune_dir_down;
+	snap->band       = s_tune_band;
 	snap->side       = s_tune_side;
 	snap->run_ms     = s_tune_ms;
 	snap->target_l   = s_tune_tgt_l;
@@ -545,6 +691,35 @@ void Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap)
 	snap->feedback_r = (int16_t)g_speed_pid_r.last_feedback;
 	snap->output_l   = (int16_t)g_speed_pid_l.last_output;
 	snap->output_r   = (int16_t)g_speed_pid_r.last_output;
+}
+
+/**
+  * @brief  目标跳变时切换增益集（按档位 + 方向），并按该方向的前馈补一次输出
+  * @param  down : 0 = 用升速集，1 = 用降速集（由目标变化的正负决定）
+  * @param  side : 0 = 左轮，1 = 右轮（参数按侧分开存）
+  * @param  band : 0~2，用目标速度所在档（由 Car_TuneBandOf 给出）
+  * @param  pid  : 该侧的速度环
+  * @param  delta: 目标变化量（mm/s，正 = 加速、负 = 减速）
+  * @note   只在“目标真的变了”那一拍调用，之后整段沿用这套增益，不会来回切。
+  */
+static void Car_Control_SelectSet(uint8_t down, uint8_t side, uint8_t band,
+                                  SpeedPID_Controller_t *pid, float delta)
+{
+	const Car_TuneGainSet_t *set;
+
+	if(band >= CAR_TUNE_BAND_COUNT)
+	{
+		band = (uint8_t)(CAR_TUNE_BAND_COUNT - 1u);
+	}
+	set = &s_tune_set[side & 1u][band][(down != 0u) ? 1u : 0u];
+
+	s_tune_dir_down = (down != 0u) ? 1u : 0u;
+	s_tune_band     = band;
+	Car_TuneWritePid(pid, set);
+	if(set->ff != 0.0f)
+	{
+		SpeedPID_Bump(pid, set->ff * delta);
+	}
 }
 
 /**
@@ -595,13 +770,16 @@ static void Car_Control_TuneUpdate(void)
 	}
 
 	/* 目标一拍到位：vl/vr 中途改目标就是真正的阶跃，PID 直接吃新的设定值。
-	 * 前馈：目标相对“上一拍下发值”有跳变时，先按 K·Δ 把输出挪到位，再交给
-	 * PID 修残差——否则头几拍占空比给不够，积分会把输出堆过头（+20~26% 超调）。*/
+	 * 目标变了的那一拍：先按跳变方向选增益集（升速/降速两套），再按该方向的
+	 * 前馈把输出挪到位，然后交给 PID 修残差。*/
 	if(s_tune_tgt_l > 0)
 	{
 		if(s_tune_prev_l != s_tune_tgt_l)
 		{
-			SpeedPID_Bump(&g_speed_pid_l, s_tune_ff * (float)(s_tune_tgt_l - s_tune_prev_l));
+			Car_Control_SelectSet((s_tune_tgt_l > s_tune_prev_l) ? 0u : 1u, 0u,
+			                      Car_TuneBandOf(s_tune_tgt_l),
+			                      &g_speed_pid_l,
+			                      (float)(s_tune_tgt_l - s_tune_prev_l));
 			s_tune_prev_l = s_tune_tgt_l;
 		}
 		duty = SpeedPID_Calculate(&g_speed_pid_l, (float)s_tune_tgt_l, speed_left_mm_s);
@@ -618,7 +796,10 @@ static void Car_Control_TuneUpdate(void)
 	{
 		if(s_tune_prev_r != s_tune_tgt_r)
 		{
-			SpeedPID_Bump(&g_speed_pid_r, s_tune_ff * (float)(s_tune_tgt_r - s_tune_prev_r));
+			Car_Control_SelectSet((s_tune_tgt_r > s_tune_prev_r) ? 0u : 1u, 1u,
+			                      Car_TuneBandOf(s_tune_tgt_r),
+			                      &g_speed_pid_r,
+			                      (float)(s_tune_tgt_r - s_tune_prev_r));
 			s_tune_prev_r = s_tune_tgt_r;
 		}
 		duty = SpeedPID_Calculate(&g_speed_pid_r, (float)s_tune_tgt_r, speed_right_mm_s);

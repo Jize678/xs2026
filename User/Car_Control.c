@@ -35,10 +35,16 @@ static uint8_t     s_tune_side   = 2;    /* 本次 ! 的侧别（Car_TuneSide_t�
 static uint32_t    s_tune_left_ms  = 0;  /* 本次 ! 剩余时长（ms），2ms 控制拍里递减 */
 
 /* tf 负压加持：不是立刻吹，而是决定下一次 `!` 实验要不要先解锁负压、吹多大。
- * s_tune_fan_duty 是粘性设定（0 = 不带负压），s_tune_arm_ticks > 0 表示正在
- * 压最低油门等电调解锁，此时电机必须停着，闭环计时还没开始。 */
+ * s_tune_fan_duty 是粘性设定（0 = 不带负压）。s_tune_arm_ticks > 0 表示正在
+ * 等负压建立（电机停着、闭环计时还没开始），负压在这一段里就已经吹起来了。 */
 static uint16_t    s_tune_fan_duty = 0;  /* tf 设定 0~1000 */
-static uint16_t    s_tune_arm_ticks = 0; /* 解锁倒计时（tick），>0 = 解锁中 */
+static uint16_t    s_tune_arm_ticks = 0; /* 负压建立倒计时（tick），>0 = 准备中 */
+
+/* 目标软起动（2026-10-31）：闭环用的目标速度按 CAR_TUNE_RAMP_MS 从 0 线性爬
+ * 到 s_tune_tgt_*，避免一上来就撞静摩擦死区、把占空比堆到 24.5% 再冲出去。
+ * s_tune_ramp_* 是“当前已经爬到的目标”，每次 `!` 与 hlt 都清零。 */
+static float       s_tune_ramp_l = 0.0f;
+static float       s_tune_ramp_r = 0.0f;
 
 /**
   * @brief  单轮测试：只让一侧轮子转，CAR_WHEEL_TEST_MS 毫秒后自动回待机
@@ -331,6 +337,8 @@ static void Car_Control_TuneStop(void)
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
 	s_tune_arm_ticks = 0u;
+	s_tune_ramp_l = 0.0f;
+	s_tune_ramp_r = 0.0f;
 	Motor_SetSpeed(MOTOR_L, 0);
 	Motor_SetSpeed(MOTOR_R, 0);
 	SpeedPID_Reset(&g_speed_pid_l);
@@ -343,9 +351,10 @@ static void Car_Control_TuneStop(void)
   * @brief  `! <ms> <l|r|all>`：按当前 vl / vr 目标定时闭环，到点自动停车（留在模式内）
   * @param  side : CAR_TUNE_SIDE_L / R / ALL；只跑一侧时另一侧目标强制 0
   * @param  ms   : 运行时长（1 ~ CAR_TUNE_RUN_MS_MAX）
-  * @note   已经在跑（或正在解锁负压）的时候再发 ! 直接忽略，等这一组跑完
-  * @note   tf 设过负压时，先停着电机压最低油门等电调解锁 CAR_FAN_ARM_MS，
-  *         解锁完才推负压并开始闭环计时；实验一结束负压同时回最低油门
+  * @note   已经在跑（或正在等负压建立）的时候再发 ! 直接忽略，等这一组跑完
+  * @note   tf 设过负压时：**立刻**把负压推到设定值，电机停着空等 CAR_FAN_ARM_MS
+  *         让电调上转、裙边吸住，这段时间结束才进闭环计时；实验一结束负压同步回最低油门
+  * @note   闭环用的目标按 CAR_TUNE_RAMP_MS 从 0 软起动，避免起跑冲过静摩擦死区
   */
 void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 {
@@ -384,13 +393,19 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 	s_tune_side     = side;
 	s_tune_ms       = ms;
 	s_tune_left_ms  = (uint32_t)ms;
+	s_tune_ramp_l   = 0.0f;      /* 软起动从 0 开始爬 */
+	s_tune_ramp_r   = 0.0f;
 
 	if(s_tune_fan_duty > 0u)
 	{
-		/* 带负压：电机先停着，压最低油门等电调解锁，解锁完才进闭环计时 */
+		/* 带负压：**立刻**把负压推到设定值（不等闭环），电机停着空等
+		 * CAR_FAN_ARM_MS 让电调上转、裙边吸住；这段时间结束时才进闭环计时。
+		 * 2026-10-31 改：原来是等解锁完才推负压，负压建立（电调加速 + 裙边
+		 * 密封）要 100~300ms，起闭环头几百毫秒其实是“半负压”，起跑段工况
+		 * 和稳态不一致；改成先吹后跑，起闭环时吸力已经到位。 */
 		Motor_SetSpeed(MOTOR_L, 0);
 		Motor_SetSpeed(MOTOR_R, 0);
-		M3PWM_SetDutyCycle(0);
+		M3PWM_SetDutyCycle(s_tune_fan_duty);
 		s_tune_run       = 0u;
 		s_tune_arm_ticks = (uint16_t)(CAR_FAN_ARM_MS / CAR_CTRL_TICK_MS);
 	}
@@ -406,7 +421,8 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 /**
   * @brief  tf <0~100>：设定下一次 `!` 实验的负压占空比（粘性，直到下次 tf 覆盖）
   * @param  duty: 0 ~ 1000（M3PWM 量程，0 = 实验时不带负压）
-  * @note   只改设定，不立刻吹；真正推油门发生在 `!` 的解锁倒计时结束时
+  * @note   只改设定，不立刻吹；真正推油门发生在下一次 `!` 开始的那一刻（之后再等
+  *         CAR_FAN_ARM_MS 让负压建立，然后才起闭环）
   */
 void Car_Control_TuneSetFan(uint16_t duty)
 {
@@ -500,6 +516,43 @@ void Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap)
 }
 
 /**
+  * @brief  目标软起动的单拍推进：把 current 朝 target 线性爬升/下降一步
+  * @param  current: 当前已经爬到的目标（mm/s）
+  * @param  target : 设定目标（mm/s）
+  * @return 新的当前目标
+  * @note   每 2ms 一步，0→target 用 CAR_TUNE_RAMP_MS 毫秒；target<=0 时直接回 0
+  *         （停车侧不需要斜坡）。斜坡只作用在“目标”上，PID 结构与增益都不变，
+  *         所以稳态（③）与增益整定结果不受影响，只改起跑段的动态。
+  */
+static float Car_Control_TuneRamp(float current, float target)
+{
+	float step;
+
+	if(target <= 0.0f)
+	{
+		return 0.0f;
+	}
+	step = target * ((float)CAR_CTRL_TICK_MS / (float)CAR_TUNE_RAMP_MS);
+	if(current < target)
+	{
+		current += step;
+		if(current > target)
+		{
+			current = target;
+		}
+	}
+	else if(current > target)
+	{
+		current -= step;
+		if(current < target)
+		{
+			current = target;
+		}
+	}
+	return current;
+}
+
+/**
   * @brief  调参模式的每 2ms 动作：两侧各自闭环（目标为 0 的一侧停、不积分）
   */
 static void Car_Control_TuneUpdate(void)
@@ -546,22 +599,26 @@ static void Car_Control_TuneUpdate(void)
 
 	if(s_tune_tgt_l > 0)
 	{
-		duty = SpeedPID_Calculate(&g_speed_pid_l, (float)s_tune_tgt_l, speed_left_mm_s);
+		s_tune_ramp_l = Car_Control_TuneRamp(s_tune_ramp_l, (float)s_tune_tgt_l);
+		duty = SpeedPID_Calculate(&g_speed_pid_l, s_tune_ramp_l, speed_left_mm_s);
 		Motor_SetSpeedClamped(MOTOR_L, duty);
 	}
 	else
 	{
+		s_tune_ramp_l = 0.0f;
 		Motor_SetSpeed(MOTOR_L, 0);
 		SpeedPID_Reset(&g_speed_pid_l);
 	}
 
 	if(s_tune_tgt_r > 0)
 	{
-		duty = SpeedPID_Calculate(&g_speed_pid_r, (float)s_tune_tgt_r, speed_right_mm_s);
+		s_tune_ramp_r = Car_Control_TuneRamp(s_tune_ramp_r, (float)s_tune_tgt_r);
+		duty = SpeedPID_Calculate(&g_speed_pid_r, s_tune_ramp_r, speed_right_mm_s);
 		Motor_SetSpeedClamped(MOTOR_R, duty);
 	}
 	else
 	{
+		s_tune_ramp_r = 0.0f;
 		Motor_SetSpeed(MOTOR_R, 0);
 		SpeedPID_Reset(&g_speed_pid_r);
 	}

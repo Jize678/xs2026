@@ -6,6 +6,8 @@
     .\tools\tune_auto.ps1 check                       # 自检：? / tune / kq，读回当前增益与模式
     .\tools\tune_auto.ps1 gains -Kp 1.23 -Ki 0.56 -Kd 0.00 -Side l
     .\tools\tune_auto.ps1 group -Tag base -Target 500 -RunMs 1500 -Reps 3 -Side l
+    .\tools\tune_auto.ps1 group -Tag both -Target 1000 -RunMs 3000 -Reps 3 -Side all -AllowBoth -Fan 50
+                                                      # 两侧同跑＝直行，必须 -AllowBoth，且 Target×RunMs ≤ 3000 mm
     .\tools\tune_auto.ps1 raw -Cmd "?"                # 发一条任意指令，收 1.5 s 回显
     .\tools\tune_auto.ps1 halt                        # hlt + 0，收工
     .\tools\tune_auto.ps1 selftest                    # 离线自检：用合成信号验证解析与指标算法（不碰串口）
@@ -34,6 +36,10 @@ param(
 
     # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
     [ValidateRange(0, 100)][int]$Fan = 0,
+
+    # 两侧同时闭环（-Side all）是直行工况，必须显式解锁，并且目标×时间 ≤ MaxTravelMm
+    [switch]$AllowBoth,
+    [int]$MaxTravelMm = 3000,
 
     [string]$Tag = 'run',
     [string]$Cmd = '',
@@ -186,6 +192,29 @@ function ConvertTo-Rows([string[]]$Lines, [string]$Side1) {
         }
     }
     return , $rows.ToArray()
+}
+
+# 两侧同时跑时，一行 CSV 里 L/R 各有一套 t/f/u，先整行保留，再按侧别投影
+function ConvertTo-FullRows([string[]]$Lines) {
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($l in $Lines) {
+        if ($l -match $CsvRegex) {
+            $rows.Add([pscustomobject]@{
+                    ms = [int]$Matches[1]
+                    tL = [int]$Matches[2]; fL = [int]$Matches[3]; uL = [int]$Matches[4]
+                    tR = [int]$Matches[5]; fR = [int]$Matches[6]; uR = [int]$Matches[7]
+                })
+        }
+    }
+    return , $rows.ToArray()
+}
+
+function Project-Side([object[]]$Rows, [string]$Side1) {
+    $out = foreach ($r in $Rows) {
+        if ($Side1 -eq 'r') { [pscustomobject]@{ ms = $r.ms; t = $r.tR; f = $r.fR; u = $r.uR } }
+        else { [pscustomobject]@{ ms = $r.ms; t = $r.tL; f = $r.fL; u = $r.uL } }
+    }
+    return , @($out)
 }
 
 # 丢掉“陈旧前缀”：蓝牙断开重连时串口缓冲里可能残留上一组的一行，
@@ -359,14 +388,33 @@ function Do-Check($sp) {
     return $p
 }
 
-function Do-Group($sp) {
-    # 安全规则：一次只许一侧闭环，另一侧必须为 0（车绕另一侧轮子转圈，行程有界）。
-    # 左轮或右轮都可以做实验，但绝不允许 all/两侧同时闭环。
-    if ($Side -ne 'l' -and $Side -ne 'r') {
-        throw "只允许单侧实验（-Side l 或 -Side r）。两侧同时闭环会让车直行冲出去，见 速度环调参说明.md §9.0。"
+function Assert-GroupArgs {
+    if ($Side -eq 'all' -and -not $AllowBoth) {
+        throw "两侧同时闭环（-Side all）＝直行，必须显式加 -AllowBoth，且已获得用户逐次确认才发车。"
     }
+    $travel = [int][math]::Round($Target * $RunMs / 1000.0)
+    if ($Side -eq 'all' -and $travel -gt $MaxTravelMm) {
+        throw ("目标 {0} mm/s × {1} ms = {2} mm，超过 {3} mm 上限，先降 Target 或 RunMs。" -f $Target, $RunMs, $travel, $MaxTravelMm)
+    }
+}
+
+function Send-Targets($sp, [string[]]$Sides, [int]$Tgt) {
+    foreach ($sd in $Sides) {
+        if ($sd -eq 'r') { [void](Send-Cmd $sp ('vr' + $Tgt) 250) }
+        else { [void](Send-Cmd $sp ('vl' + $Tgt) 250) }
+    }
+}
+
+function Do-Group($sp) {
+    # 安全规则（速度环调参说明.md §9.0）：
+    #   默认一次只许一侧闭环 —— 车绕另一侧轮子转圈，行程有界；
+    #   两侧同时闭环＝直行，必须显式 -AllowBoth（用户逐次确认），且目标×时间 ≤ MaxTravelMm。
+    Assert-GroupArgs
+    $travel = [int][math]::Round($Target * $RunMs / 1000.0)
+    $sides = @($Side)
+    if ($Side -eq 'all') { $sides = @('l', 'r') }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan)
+    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} travel={6}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan, $travel)
 
     # 必须先进 tune：上电后默认 IDLE，此时 `!` 会被固件静默忽略（只回显、不闭环、不出 CSV）
     [void](Send-Cmd $sp 'tune' 400)
@@ -377,17 +425,19 @@ function Do-Group($sp) {
 
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'
-        Set-Gains $sp $Side $Kp $Ki $Kd
+        foreach ($sd in $sides) { Set-Gains $sp $sd $Kp $Ki $Kd }
     }
     $p = Get-TuneParams $sp
-    $side2 = $Side.ToUpper()
-    Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $side2, $p."${side2}_kp", $p."${side2}_ki", $p."${side2}_kd") -ForegroundColor Green
+    foreach ($sd in $sides) {
+        $k = $sd.ToUpper()
+        Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
+    }
 
-    $all = @()
+    $recs = @()
     for ($rep = 1; $rep -le $Reps; $rep++) {
         Write-Info ("-- rep {0}/{1}" -f $rep, $Reps)
-        # 每次停车目标清零，必须重发目标
-        if ($Side -eq 'r') { [void](Send-Cmd $sp ('vr' + $Target) 250) } else { [void](Send-Cmd $sp ('vl' + $Target) 250) }
+        # 每次停车目标清零，必须重发目标（两侧同时跑时两边都要发）
+        Send-Targets $sp $sides $Target
 
         $pre = Send-Cmd $sp ('! ' + $RunMs + ' ' + $Side) 300
         $busy = @($pre | Where-Object { $_ -match 'busy' })
@@ -395,7 +445,7 @@ function Do-Group($sp) {
             Write-Warning '  busy: still running, sending hlt and waiting 1s'
             [void](Send-Cmd $sp 'hlt' 300)
             Start-Sleep -Milliseconds 800
-            if ($Side -eq 'r') { [void](Send-Cmd $sp ('vr' + $Target) 250) } else { [void](Send-Cmd $sp ('vl' + $Target) 250) }
+            Send-Targets $sp $sides $Target
             $pre = Send-Cmd $sp ('! ' + $RunMs + ' ' + $Side) 300
         }
 
@@ -405,68 +455,78 @@ function Do-Group($sp) {
         # 把发指令后 300 ms 里已经收到的那几行也并进来，避免丢掉启动段
         $lines = @($pre) + @($lines)
         $csvLines = @($lines | Where-Object { $_ -match $CsvRegex })
-        $rows = ConvertTo-Rows $csvLines $Side
+        $rowsFull = ConvertTo-FullRows $csvLines
 
         $file = Join-Path $OutDir ('{0:yyyyMMdd_HHmmss}_{1}_{2}_r{3}.csv' -f (Get-Date), $Tag, $Side, $rep)
         Set-Content -Path $file -Value $csvLines -Encoding ASCII
-        Write-Host ("  saved {0} rows -> {1}" -f $rows.Count, $file) -ForegroundColor DarkGray
+        Write-Host ("  saved {0} rows -> {1}" -f $rowsFull.Count, $file) -ForegroundColor DarkGray
 
-        $rowsClean = Drop-StalePrefix $rows
-        if ($rowsClean.Count -ne $rows.Count) {
-            Write-Warning ("  dropped {0} stale leading row(s) (bluetooth residue)" -f ($rows.Count - $rowsClean.Count))
+        $rowsClean = Drop-StalePrefix $rowsFull
+        if ($rowsClean.Count -ne $rowsFull.Count) {
+            Write-Warning ("  dropped {0} stale leading row(s) (bluetooth residue)" -f ($rowsFull.Count - $rowsClean.Count))
         }
-        $m = Get-Metrics $rowsClean $Target $Side
-        if (-not $m.valid) { Write-Warning ("  rep {0} invalid: {1}" -f $rep, $m.reason) }
-        $v = Get-VerDict $m $Target
-        Show-Metrics $m $v
-        $all += [pscustomobject]@{ rep = $rep; m = $m; v = $v }
+        $bySide = @{}
+        foreach ($sd in $sides) {
+            $m = Get-Metrics (Project-Side $rowsClean $sd) $Target $sd
+            if (-not $m.valid) { Write-Warning ("  rep {0} {1} invalid: {2}" -f $rep, $sd.ToUpper(), $m.reason) }
+            $v = Get-VerDict $m $Target
+            if ($sides.Count -gt 1) { Write-Host ("  ---- {0} side ----" -f $sd.ToUpper()) -ForegroundColor Cyan }
+            Show-Metrics $m $v
+            $bySide[$sd] = [pscustomobject]@{ m = $m; v = $v }
+        }
+        $recs += [pscustomobject]@{ rep = $rep; bySide = $bySide }
 
         # 组间 >= 2.6 s
         if ($rep -lt $Reps) { Write-Host '  [gap] waiting 2.6s' -ForegroundColor DarkGray; Start-Sleep -Milliseconds 2600 }
     }
 
-    $valid = @($all | Where-Object { $_.m.valid })
-    if ($valid.Count -eq 0) { Write-Warning 'all reps invalid'; return $null }
+    $results = @{}
+    foreach ($sd in $sides) {
+        $valid = @($recs | ForEach-Object { $_.bySide[$sd] } | Where-Object { $_.m.valid })
+        if ($valid.Count -eq 0) { Write-Warning ("  {0}: all reps invalid" -f $sd.ToUpper()); continue }
 
-    $med = [pscustomobject]@{
-        rep_count = $valid.Count
-        t90       = Get-Median ($valid | ForEach-Object { $_.m.t90 })
-        rise_dev  = Get-Median ($valid | ForEach-Object { $_.m.rise_dev_pct })
-        steady    = Get-Median ($valid | ForEach-Object { $_.m.steady_mean })
-        err       = Get-Median ($valid | ForEach-Object { $_.m.steady_err_pct })
-        dev       = Get-Median ($valid | ForEach-Object { $_.m.steady_dev_pct })
-        sd        = Get-Median ($valid | ForEach-Object { $_.m.steady_sd })
-        p10       = Get-Median ($valid | ForEach-Object { $_.m.p10 })
-        p90       = Get-Median ($valid | ForEach-Object { $_.m.p90 })
-        outband   = Get-Median ($valid | ForEach-Object { $_.m.out_band })
-        u_mean    = Get-Median ($valid | ForEach-Object { $_.m.u_mean })
-        peak      = Get-Median ($valid | ForEach-Object { $_.m.peak_block })
-        gaps      = ((($valid | ForEach-Object { $_.m.gaps })) | Measure-Object -Sum).Sum
-        pass_rise = (@($valid | Where-Object { $_.v.A_rise }).Count) -ge [math]::Ceiling($valid.Count / 2)
-        pass_band = (@($valid | Where-Object { $_.v.B_band }).Count) -ge [math]::Ceiling($valid.Count / 2)
-        pass_steady = (@($valid | Where-Object { $_.v.C_steady }).Count) -ge [math]::Ceiling($valid.Count / 2)
+        $med = [pscustomobject]@{
+            rep_count = $valid.Count
+            t90       = Get-Median ($valid | ForEach-Object { $_.m.t90 })
+            rise_dev  = Get-Median ($valid | ForEach-Object { $_.m.rise_dev_pct })
+            steady    = Get-Median ($valid | ForEach-Object { $_.m.steady_mean })
+            err       = Get-Median ($valid | ForEach-Object { $_.m.steady_err_pct })
+            dev       = Get-Median ($valid | ForEach-Object { $_.m.steady_dev_pct })
+            sd        = Get-Median ($valid | ForEach-Object { $_.m.steady_sd })
+            p10       = Get-Median ($valid | ForEach-Object { $_.m.p10 })
+            p90       = Get-Median ($valid | ForEach-Object { $_.m.p90 })
+            outband   = Get-Median ($valid | ForEach-Object { $_.m.out_band })
+            u_mean    = Get-Median ($valid | ForEach-Object { $_.m.u_mean })
+            peak      = Get-Median ($valid | ForEach-Object { $_.m.peak_block })
+            gaps      = ((($valid | ForEach-Object { $_.m.gaps })) | Measure-Object -Sum).Sum
+            pass_rise = (@($valid | Where-Object { $_.v.A_rise }).Count) -ge [math]::Ceiling($valid.Count / 2)
+            pass_band = (@($valid | Where-Object { $_.v.B_band }).Count) -ge [math]::Ceiling($valid.Count / 2)
+            pass_steady = (@($valid | Where-Object { $_.v.C_steady }).Count) -ge [math]::Ceiling($valid.Count / 2)
+        }
+
+        Write-Host ''
+        Write-Info ('== group median {0} side (n reps valid) ==' -f $sd.ToUpper())
+        Write-Host ('  t90={0}ms  rise_dev={1}%  steady={2}  err={3}%  dev={4}%  sd={5}' -f `
+                $med.t90, $med.rise_dev, $med.steady, $med.err, $med.dev, $med.sd) -ForegroundColor Green
+        Write-Host ('  p10={0} p90={1} outband={2}  u_mean={3}  peak_block={4}' -f `
+                $med.p10, $med.p90, $med.outband, $med.u_mean, $med.peak) -ForegroundColor Green
+        $cc = 'Red'; if ($med.pass_rise -and $med.pass_band -and $med.pass_steady) { $cc = 'Green' }
+        Write-Host ('  PASS: [1]={0} [2]={1} [3]={2}' -f $med.pass_rise, $med.pass_band, $med.pass_steady) -ForegroundColor $cc
+
+        $sum = Join-Path $OutDir 'summary.csv'
+        $k = $sd.ToUpper()
+        $line = '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
+            (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $sd, $Target, `
+            $p."${k}_kp", $p."${k}_ki", $p."${k}_kd", $med.rep_count, `
+            $med.t90, $med.peak, $med.rise_dev, $med.steady, $med.err, $med.dev, $med.sd, $med.outband, $med.u_mean
+        if (-not (Test-Path $sum)) {
+            Set-Content -Path $sum -Value 'time,tag,side,target,kp,ki,kd,reps,t90,peak_block,rise_dev,steady,err_pct,dev_pct,sd,outband,u_mean' -Encoding ASCII
+        }
+        Add-Content -Path $sum -Value $line -Encoding ASCII
+        Write-Host ("  appended -> {0}" -f $sum) -ForegroundColor DarkGray
+        $results[$sd] = $med
     }
-
-    Write-Host ''
-    Write-Info '== group median (n reps valid) =='
-    Write-Host ('  t90={0}ms  rise_dev={1}%  steady={2}  err={3}%  dev={4}%  sd={5}' -f `
-            $med.t90, $med.rise_dev, $med.steady, $med.err, $med.dev, $med.sd) -ForegroundColor Green
-    Write-Host ('  p10={0} p90={1} outband={2}  u_mean={3}  peak_block={4}' -f `
-            $med.p10, $med.p90, $med.outband, $med.u_mean, $med.peak) -ForegroundColor Green
-    $cc = 'Red'; if ($med.pass_rise -and $med.pass_band -and $med.pass_steady) { $cc = 'Green' }
-    Write-Host ('  PASS: [1]={0} [2]={1} [3]={2}' -f $med.pass_rise, $med.pass_band, $med.pass_steady) -ForegroundColor $cc
-
-    $sum = Join-Path $OutDir 'summary.csv'
-    $line = '{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
-        (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $Side, $Target, `
-        $p."${side2}_kp", $p."${side2}_ki", $p."${side2}_kd", $med.rep_count, `
-        $med.t90, $med.peak, $med.rise_dev, $med.steady, $med.err, $med.dev, $med.sd, $med.outband, $med.u_mean
-    if (-not (Test-Path $sum)) {
-        Set-Content -Path $sum -Value 'time,tag,side,target,kp,ki,kd,reps,t90,peak_block,rise_dev,steady,err_pct,dev_pct,sd,outband,u_mean' -Encoding ASCII
-    }
-    Add-Content -Path $sum -Value $line -Encoding ASCII
-    Write-Host ("  appended -> {0}" -f $sum) -ForegroundColor DarkGray
-    return [pscustomobject]@{ med = $med; params = $p; reps = $all }
+    return [pscustomobject]@{ results = $results; params = $p; reps = $recs }
 }
 
 function Invoke-SelfTest {
@@ -520,13 +580,31 @@ function Invoke-SelfTest {
             $rL.Count, $rL[0].t, $rL[0].f, $rL[0].u, $rR[0].t, $rR[0].f, $rR[0].u) -ForegroundColor Green
     if ($rL.Count -ne 3 -or $rL[0].f -ne 486 -or $rR[0].t -ne 0) { Write-Warning '  csv parse MISMATCH'; exit 1 }
     Write-Host '  csv parse OK' -ForegroundColor Green
+
+    Write-Info '== selftest: both-side projection (l/f 与 r/f 不能串列) =='
+    $csv2 = @(
+        '40000,1000,900,1200,1000,1100,1300',
+        '40020,1000,950,1210,1000,1050,1310',
+        '40040,1000,1000,1220,1000,1000,1320'
+    )
+    $full = ConvertTo-FullRows $csv2
+    $pL = Project-Side $full 'l'
+    $pR = Project-Side $full 'r'
+    Write-Host ('  full={0} rows  L(first f={1},u={2})  R(first f={3},u={4})' -f `
+            $full.Count, $pL[0].f, $pL[0].u, $pR[0].f, $pR[0].u) -ForegroundColor Green
+    if ($full.Count -ne 3 -or $pL[0].f -ne 900 -or $pL[0].u -ne 1200 -or $pR[0].f -ne 1100 -or $pR[0].u -ne 1300) {
+        Write-Warning '  both-side projection MISMATCH'; exit 1
+    }
+    Write-Host '  both-side projection OK' -ForegroundColor Green
 }
 
 function Show-Help {
     Write-Host 'XS2026 tune runner' -ForegroundColor Cyan
     Write-Host '  .\tools\tune_auto.ps1 check'
     Write-Host '  .\tools\tune_auto.ps1 gains -Kp 1.23 -Ki 0.56 -Kd 0.00 -Side l'
-    Write-Host '  .\tools\tune_auto.ps1 group -Tag base -Target 500 -RunMs 1500 -Reps 3 -Side l [-Kp .. -Ki .. -Kd ..]'
+    Write-Host '  .\tools\tune_auto.ps1 group -Tag base -Target 500 -RunMs 1500 -Reps 3 -Side l [-Kp .. -Ki .. -Kd ..] [-Fan 0~100]'
+    Write-Host '  .\tools\tune_auto.ps1 group -Tag both -Target 1000 -RunMs 3000 -Reps 3 -Side all -AllowBoth -Fan 50'
+    Write-Host '      -Side all：两侧同时闭环（直行），必须 -AllowBoth，且 Target×RunMs ≤ 3000 mm；每侧单独出指标'
     Write-Host '  .\tools\tune_auto.ps1 raw -Cmd "?"'
     Write-Host '  .\tools\tune_auto.ps1 halt'
     Write-Host '  .\tools\tune_auto.ps1 selftest'
@@ -550,6 +628,8 @@ switch ($Mode) {
         exit 0
     }
     'group' {
+        # 参数级安全门放在开串口之前：不合规的请求根本不碰硬件
+        Assert-GroupArgs
         $sp = Open-Port $Port
         try { [void](Do-Group $sp) } finally { Close-Port $sp }
         exit 0

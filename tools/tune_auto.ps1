@@ -20,7 +20,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('help', 'check', 'gains', 'group', 'raw', 'halt', 'selftest', 'metrics')]
+    [ValidateSet('help', 'check', 'gains', 'group', 'step', 'raw', 'halt', 'selftest', 'metrics')]
     [string]$Mode = 'help',
 
     [string]$Port = 'COM12',
@@ -37,8 +37,9 @@ param(
     # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
     [ValidateRange(0, 100)][int]$Fan = 0,
 
-    # 目标软起动时长（ms，0 = 不软起动）：每组发 tr<Ramp>，固件按 smoothstep 爬目标
-    [ValidateRange(0, 2000)][int]$Ramp = 240,
+    # step 模式：先稳住 -From 这个速度，-HoldMs 之后把目标阶跃到 -Target，量整定时间
+    [int]$From = 500,
+    [int]$HoldMs = 1500,
 
     # 两侧同时闭环（-Side all）是直行工况，必须显式解锁，并且目标×时间 ≤ MaxTravelMm
     [switch]$AllowBoth,
@@ -126,7 +127,7 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
 #---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
 # 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
 # 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
-$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|tf\d+|tr\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
+$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
 
 function Assert-SafeCmd([string]$Text) {
     $t = $Text.Trim()
@@ -473,7 +474,7 @@ function Do-Group($sp) {
     $sides = @($Side)
     if ($Side -eq 'all') { $sides = @('l', 'r') }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} ramp={6}ms travel={7}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan, $Ramp, $travel)
+    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} travel={6}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan, $travel)
 
     # 必须先进 tune：上电后默认 IDLE，此时 `!` 会被固件静默忽略（只回显、不闭环、不出 CSV）
     [void](Send-Cmd $sp 'tune' 400)
@@ -481,10 +482,6 @@ function Do-Group($sp) {
     # 负压设定（粘性）：每组都显式下发，避免沿用上一组的意外值
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
-
-    # 软起动时长（粘性）：同样每组显式下发
-    $rampReply = Send-Cmd $sp ('tr' + $Ramp) 400
-    $rampReply | Where-Object { $_ -match '\[tune\] ramp' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
 
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'
@@ -612,6 +609,253 @@ function Do-Group($sp) {
     return [pscustomobject]@{ results = $results; params = $p; reps = $recs }
 }
 
+function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
+    # 速度阶跃的整定指标（用户 2026-10-31 口径）：
+    #   ① 整定时间：阶跃后 100~300 ms 内进入目标 ±2%；
+    #   ② 超调：上升段原始采样峰值不超过目标的 110%；
+    #   ③ 稳态精度：整定之后块均与目标偏差 ≤ ±2%。
+    $res = [ordered]@{
+        valid = $false; reason = ''; n = 0; step_ms = $null
+        pre_mean = $null; pre_sd = $null
+        settle = $null; overshoot_pct = $null; peak_raw = $null
+        peak_block = $null; peak_block_pct = $null
+        steady_mean = $null; steady_err_pct = $null; steady_sd = $null
+        u_mean = $null; u_max = $null; blocks = 0
+    }
+    if ($Rows.Count -lt 20) { $res.reason = 'too few rows'; return [pscustomobject]$res }
+    $rows = @($Rows | Sort-Object ms)
+    $res.n = $rows.Count
+
+    # 阶跃帧 = 第一次出现 t == To 且上一帧的 t != To
+    $idx = -1
+    for ($i = 0; $i -lt $rows.Count; $i++) {
+        if ($rows[$i].t -eq $To -and ($i -eq 0 -or $rows[$i - 1].t -ne $To)) { $idx = $i; break }
+    }
+    if ($idx -lt 0) { $res.reason = ('step {0}->{1} not found in t column' -f $From, $To); return [pscustomobject]$res }
+    $stepMs = $rows[$idx].ms
+    $res.step_ms = $stepMs
+
+    # 阶跃前 200 ms 的实际速度：确认确实稳在 From 上（否则这次阶跃没有意义）
+    $preEnd = [math]::Max(0, $idx - 1)
+    $pre = @($rows[0..$preEnd] | Where-Object { $_.ms -ge ($stepMs - 200) })
+    if ($pre.Count -ge 3) {
+        $pv = @($pre | ForEach-Object { [double]$_.f })
+        $pm = ($pv | Measure-Object -Average).Average
+        $var = 0.0; foreach ($v in $pv) { $var += ($v - $pm) * ($v - $pm) }
+        $res.pre_mean = [math]::Round($pm, 1)
+        $res.pre_sd = [math]::Round([math]::Sqrt($var / $pv.Count), 1)
+    }
+
+    $post = @($rows[$idx..($rows.Count - 1)])
+    $res.u_mean = [math]::Round((($post | Measure-Object -Property u -Average).Average), 0)
+    $res.u_max = ($post | Measure-Object -Property u -Maximum).Maximum
+    # ② 偏离：升速看最大超调，降速看最深下冲（跳过阶跃后头 50 ms —— 那几帧还是旧速度）
+    $anaRows = @($post | Where-Object { $_.ms -ge ($stepMs + 50) })
+    if ($anaRows.Count -lt 5) { $anaRows = $post }
+    if ($To -ge $From) {
+        $res.peak_raw = ($anaRows | Measure-Object -Property f -Maximum).Maximum
+        $res.overshoot_pct = [math]::Round((($res.peak_raw / $To) - 1.0) * 100.0, 1)
+    }
+    else {
+        $res.peak_raw = ($anaRows | Measure-Object -Property f -Minimum).Minimum
+        $res.overshoot_pct = [math]::Round((1.0 - ($res.peak_raw / $To)) * 100.0, 1)
+    }
+
+    # 100 ms 对齐块（自阶跃帧起算），每块样本 >= 3 才计入
+    $blk = @{}
+    foreach ($rw in $post) {
+        $bk = [int][math]::Floor(($rw.ms - $stepMs) / 100)
+        if (-not $blk.ContainsKey($bk)) { $blk[$bk] = New-Object System.Collections.Generic.List[double] }
+        $blk[$bk].Add([double]$rw.f)
+    }
+    $bStart = @(); $bMean = @()
+    foreach ($k in @($blk.Keys | Sort-Object)) {
+        $arr = $blk[$k]
+        if ($arr.Count -ge 3) {
+            $bStart += ($stepMs + 100 * $k)
+            $bMean += (($arr | Measure-Object -Average).Average)
+        }
+    }
+    $res.blocks = $bMean.Count
+    if ($bMean.Count -lt 3) { $res.reason = ('post step blocks={0} (<3)' -f $bMean.Count); return [pscustomobject]$res }
+
+    # ① 整定：从某块起，其后所有块里 >= 95% 落在 ±2% 带内
+    $tol = 0.02 * $To
+    $setIdx = -1
+    for ($i = 0; $i -lt $bMean.Count; $i++) {
+        $ok = 0
+        for ($j = $i; $j -lt $bMean.Count; $j++) {
+            if ([math]::Abs($bMean[$j] - $To) -le $tol) { $ok++ }
+        }
+        if ($ok -ge [math]::Ceiling(0.95 * ($bMean.Count - $i))) { $setIdx = $i; break }
+    }
+    if ($setIdx -lt 0) { $res.reason = 'never settles into +-2% band'; return [pscustomobject]$res }
+    $res.settle = $bStart[$setIdx] + 100 - $stepMs
+    if ($res.settle -lt 100) { $res.settle = 100 }   # 低于一个测速块宽度没意义
+
+    # 块均的极值也从第二块算起（第一块是阶跃过渡段）
+    $mx = $bMean[[math]::Min(1, $bMean.Count - 1)]
+    for ($i = 1; $i -lt $bMean.Count; $i++) {
+        if ($To -ge $From) { if ($bMean[$i] -gt $mx) { $mx = $bMean[$i] } }
+        else { if ($bMean[$i] -lt $mx) { $mx = $bMean[$i] } }
+    }
+    $res.peak_block = [math]::Round($mx, 1)
+    if ($To -ge $From) { $res.peak_block_pct = [math]::Round((($mx / $To) - 1.0) * 100.0, 1) }
+    else { $res.peak_block_pct = [math]::Round((1.0 - ($mx / $To)) * 100.0, 1) }
+
+    $st = @()
+    for ($i = $setIdx; $i -lt $bMean.Count; $i++) { $st += $bMean[$i] }
+    $sm = ($st | Measure-Object -Average).Average
+    $sv = 0.0; foreach ($v in $st) { $sv += ($v - $sm) * ($v - $sm) }
+    $res.steady_mean = [math]::Round($sm, 1)
+    $res.steady_err_pct = [math]::Round((($sm - $To) / $To) * 100.0, 2)
+    $res.steady_sd = [math]::Round([math]::Sqrt($sv / $st.Count), 1)
+    $res.valid = $true
+    return [pscustomobject]$res
+}
+
+function Get-StepVerDict($m) {
+    $v = [ordered]@{ A_settle = $false; B_over = $false; C_steady = $false }
+    if ($m.valid) {
+        $v.A_settle = ($m.settle -ge 100 -and $m.settle -le 300)
+        $v.B_over = ($m.overshoot_pct -le 10.0)
+        $v.C_steady = ((($m.steady_err_pct -as [double]) | ForEach-Object { [math]::Abs($_) }) -le 2.0)
+    }
+    return [pscustomobject]$v
+}
+
+function Show-StepMetrics($m, $v) {
+    if (-not $m.valid) { Write-Warning ('  INVALID: {0}' -f $m.reason); return }
+    Write-Host ('  pre={0} (sd {1})  settle={2}ms  peak_raw={3} (+{4}%)  peak_block=+{5}%' -f `
+            (Fmt $m.pre_mean), (Fmt $m.pre_sd), (Fmt $m.settle), (Fmt $m.peak_raw), (Fmt $m.overshoot_pct), (Fmt $m.peak_block_pct)) -ForegroundColor Gray
+    Write-Host ('  steady={0}  err={1}%  sd={2}  u_mean={3}  blocks={4}' -f `
+            (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), (Fmt $m.u_mean), $m.blocks) -ForegroundColor Gray
+    $cc = 'Red'; if ($v.A_settle -and $v.B_over -and $v.C_steady) { $cc = 'Green' }
+    Write-Host ('  PASS: [1]settle={0} [2]overshoot={1} [3]steady={2}' -f $v.A_settle, $v.B_over, $v.C_steady) -ForegroundColor $cc
+}
+
+function Do-Step($sp) {
+    # 速度阶跃：先稳住 From，HoldMs 之后把目标改到 Target —— 只量“速度变化时的整定”，不管 0 起跑。
+    if ($Side -eq 'all' -and -not $AllowBoth) { throw 'step -Side all（两侧同时）需要 -AllowBoth' }
+    if ($From -le 0 -or $Target -le 0) { throw 'step 需要 -From 和 -Target 都 > 0' }
+    if ($HoldMs -ge $RunMs) { throw ('-HoldMs({0}) 必须小于 -RunMs({1})' -f $HoldMs, $RunMs) }
+    $sides = @($Side); if ($Side -eq 'all') { $sides = @('l', 'r') }
+    $postMs = $RunMs - $HoldMs
+    $travel = [int][math]::Round(($From * $HoldMs + $Target * $postMs) / 1000.0)
+    if ($travel -gt $MaxTravelMm) { throw ('step 行程 {0} mm 超过上限 {1} mm' -f $travel, $MaxTravelMm) }
+    if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+    Write-Info ('== step tag={0} side={1} {2}->{3} mm/s run={4}ms hold={5}ms reps={6} fan={7} travel={8}mm ==' -f `
+            $Tag, $Side, $From, $Target, $RunMs, $HoldMs, $Reps, $Fan, $travel)
+
+    [void](Send-Cmd $sp 'tune' 400)
+    $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
+    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
+        Write-Info '-- set gains'
+        foreach ($sd in $sides) { Set-Gains $sp $sd $Kp $Ki $Kd }
+    }
+    $p = Get-TuneParams $sp
+    foreach ($sd in $sides) {
+        $k = $sd.ToUpper()
+        Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
+    }
+
+    $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
+    $recs = @()
+    for ($rep = 1; $rep -le $Reps; $rep++) {
+        Write-Info ("-- rep {0}/{1}" -f $rep, $Reps)
+        Send-Targets $sp $sides $From
+
+        $pre = Send-Cmd $sp ('! ' + $RunMs + ' ' + $Side) 300
+        $busy = @($pre | Where-Object { $_ -match 'busy' })
+        if ($busy.Count -gt 0) {
+            Write-Warning '  busy: still running, sending hlt and waiting 1s'
+            [void](Send-Cmd $sp 'hlt' 300)
+            Start-Sleep -Milliseconds 800
+            Send-Targets $sp $sides $From
+            $pre = Send-Cmd $sp ('! ' + $RunMs + ' ' + $Side) 300
+        }
+
+        # 先让它稳在 From：锁臂（若带负压）+ HoldMs
+        $lines = @($pre)
+        $lines += Collect $sp ($armMs + $HoldMs + 200) -Quiet
+
+        # 阶跃：目标直接改到 Target（固件里已经不是软起动，一拍到位）
+        Send-Targets $sp $sides $Target
+
+        $lines += Collect $sp ($postMs + 3000) -Until '\[tune\] stop' -Quiet
+        $csvLines = @($lines | Where-Object { $_ -match $CsvRegex })
+        $rowsFull = ConvertTo-FullRows $csvLines
+
+        $file = Join-Path $OutDir ('{0:yyyyMMdd_HHmmss}_{1}_step{2}_{3}_{4}_r{5}.csv' -f (Get-Date), $Tag, $From, $Target, $Side, $rep)
+        Set-Content -Path $file -Value $csvLines -Encoding ASCII
+        Write-Host ("  saved {0} rows -> {1}" -f $rowsFull.Count, $file) -ForegroundColor DarkGray
+
+        $rowsClean = Drop-StalePrefix $rowsFull
+        $bySide = @{}
+        foreach ($sd in $sides) {
+            $proj = Project-Side (Trim-StopTail $rowsClean $Target $sd) $sd
+            $m = Get-StepMetrics $proj $From $Target
+            if (-not $m.valid) { Write-Warning ("  rep {0} {1} invalid: {2}" -f $rep, $sd.ToUpper(), $m.reason) }
+            $v = Get-StepVerDict $m
+            if ($sides.Count -gt 1) { Write-Host ("  ---- {0} side ----" -f $sd.ToUpper()) -ForegroundColor Cyan }
+            Write-Host ('  {0}: {1}->{2}' -f $sd.ToUpper(), $From, $Target) -ForegroundColor Gray
+            Show-StepMetrics $m $v
+            $bySide[$sd] = [pscustomobject]@{ m = $m; v = $v }
+        }
+        $recs += [pscustomobject]@{ rep = $rep; bySide = $bySide }
+
+        if ($LogPath -ne '') {
+            $log = New-Object System.Collections.Generic.List[string]
+            $log.Add('------------------------------------------------------------')
+            $log.Add(('[{0}] step tag={1} rep={2} {3}->{4} mm/s run={5}ms hold={6}ms fan={7} travel={8}mm' -f `
+                        (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $From, $Target, $RunMs, $HoldMs, $Fan, $travel))
+            foreach ($sd in $sides) {
+                $k = $sd.ToUpper()
+                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd"))
+            }
+            $log.Add(('  CSV: {0}' -f $file))
+            foreach ($sd in $sides) {
+                $e = $bySide[$sd]; $k = $sd.ToUpper()
+                $log.Add(('  {0}: pre={1} (sd {2})  settle={3}ms  peak_raw={4} (+{5}%)  peak_block=+{6}%  steady={7}  err={8}%  sd={9}  u_mean={10}  => [1]{11} [2]{12} [3]{13}' -f `
+                            $k, (Fmt $e.m.pre_mean), (Fmt $e.m.pre_sd), (Fmt $e.m.settle), (Fmt $e.m.peak_raw), (Fmt $e.m.overshoot_pct), `
+                            (Fmt $e.m.peak_block_pct), (Fmt $e.m.steady_mean), (Fmt $e.m.steady_err_pct), (Fmt $e.m.steady_sd), `
+                            $e.m.u_mean, $e.v.A_settle, $e.v.B_over, $e.v.C_steady))
+            }
+            Add-Content -Path $LogPath -Value $log -Encoding UTF8
+        }
+
+        if ($rep -lt $Reps) { Write-Host '  [gap] waiting 2.6s' -ForegroundColor DarkGray; Start-Sleep -Milliseconds 2600 }
+    }
+
+    foreach ($sd in $sides) {
+        $valid = @($recs | ForEach-Object { $_.bySide[$sd] } | Where-Object { $_.m.valid })
+        if ($valid.Count -eq 0) { Write-Warning ("  {0}: all reps invalid" -f $sd.ToUpper()); continue }
+        $settle = Get-Median ($valid | ForEach-Object { $_.m.settle })
+        $over = Get-Median ($valid | ForEach-Object { $_.m.overshoot_pct })
+        $err = Get-Median ($valid | ForEach-Object { $_.m.steady_err_pct })
+        $sdv = Get-Median ($valid | ForEach-Object { $_.m.steady_sd })
+        $um = Get-Median ($valid | ForEach-Object { $_.m.u_mean })
+        $ps = (@($valid | Where-Object { $_.v.A_settle }).Count) -ge [math]::Ceiling($valid.Count / 2)
+        $po = (@($valid | Where-Object { $_.v.B_over }).Count) -ge [math]::Ceiling($valid.Count / 2)
+        $pc = (@($valid | Where-Object { $_.v.C_steady }).Count) -ge [math]::Ceiling($valid.Count / 2)
+        Write-Host ''
+        Write-Info ('== step median {0} side {1}->{2} (n={3}) ==' -f $sd.ToUpper(), $From, $Target, $valid.Count)
+        Write-Host ('  settle={0}ms  overshoot=+{1}%  err={2}%  sd={3}  u_mean={4}' -f $settle, $over, $err, $sdv, $um) -ForegroundColor Green
+        $cc = 'Red'; if ($ps -and $po -and $pc) { $cc = 'Green' }
+        Write-Host ('  PASS: [1]={0} [2]={1} [3]={2}' -f $ps, $po, $pc) -ForegroundColor $cc
+
+        $sum = Join-Path $OutDir 'step_summary.csv'
+        if (-not (Test-Path $sum)) {
+            Set-Content -Path $sum -Value 'time,tag,side,from,to,kp,ki,kd,reps,settle,overshoot_pct,err_pct,sd,u_mean,pass1,pass2,pass3' -Encoding ASCII
+        }
+        $k = $sd.ToUpper()
+        Add-Content -Path $sum -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
+                (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $sd, $From, $Target, `
+                $p."${k}_kp", $p."${k}_ki", $p."${k}_kd", $valid.Count, $settle, $over, $err, $sdv, $um, $ps, $po, $pc) -Encoding ASCII
+    }
+}
+
 function Invoke-SelfTest {
     Write-Info '== selftest: synthetic step response =='
     $rows = New-Object System.Collections.Generic.List[object]
@@ -679,6 +923,40 @@ function Invoke-SelfTest {
         Write-Warning '  both-side projection MISMATCH'; exit 1
     }
     Write-Host '  both-side projection OK' -ForegroundColor Green
+
+    Write-Info '== selftest: speed step 500->1000 (settle should land in 100~300 ms) =='
+    $srows = New-Object System.Collections.Generic.List[object]
+    $rnd2 = New-Object Random 7
+    $fv = 500.0
+    for ($t = 0; $t -le 3000; $t += 25) {
+        $tgt = 500
+        if ($t -ge 1200) { $tgt = 1000 }
+        # 一阶惯性 tau=80ms 跟踪目标 + 少量噪声
+        $fv += ($tgt - $fv) * (1.0 - [math]::Exp(-25.0 / 40.0))
+        $noise = ($rnd2.NextDouble() - 0.5) * 12.0
+        $srows.Add([pscustomobject]@{ ms = 40000 + $t; t = $tgt; f = [int][math]::Round($fv + $noise); u = 900 })
+    }
+    $sm = Get-StepMetrics $srows 500 1000
+    $sv = Get-StepVerDict $sm
+    Show-StepMetrics $sm $sv
+    if (-not $sm.valid) { Write-Warning ('  step metrics INVALID: {0}' -f $sm.reason) }
+    elseif ($sv.A_settle -and $sv.B_over -and $sv.C_steady) { Write-Host '  step 500->1000 OK' -ForegroundColor Green }
+    else { Write-Warning '  step 500->1000 metrics not as expected' }
+
+    Write-Info '== selftest: speed step 1500->1000 (降速也要能测出来) =='
+    $drows = New-Object System.Collections.Generic.List[object]
+    $dv0 = 1500.0
+    for ($t = 0; $t -le 3000; $t += 25) {
+        $tgt = 1500
+        if ($t -ge 1200) { $tgt = 1000 }
+        $dv0 += ($tgt - $dv0) * (1.0 - [math]::Exp(-25.0 / 80.0))
+        $drows.Add([pscustomobject]@{ ms = 40000 + $t; t = $tgt; f = [int][math]::Round($dv0); u = 700 })
+    }
+    $dm = Get-StepMetrics $drows 1500 1000
+    $dvd = Get-StepVerDict $dm
+    Show-StepMetrics $dm $dvd
+    if ($dm.valid -and $dvd.A_settle) { Write-Host '  step 1500->1000 OK' -ForegroundColor Green }
+    else { Write-Warning '  step 1500->1000 metrics not as expected' }
 }
 
 function Do-Metrics([string]$Path) {
@@ -717,6 +995,8 @@ function Show-Help {
     Write-Host '  .\tools\tune_auto.ps1 group -Tag base -Target 500 -RunMs 1500 -Reps 3 -Side l [-Kp .. -Ki .. -Kd ..] [-Fan 0~100]'
     Write-Host '  .\tools\tune_auto.ps1 group -Tag both -Target 1000 -RunMs 3000 -Reps 3 -Side all -AllowBoth -Fan 50'
     Write-Host '      -Side all：两侧同时闭环（直行），必须 -AllowBoth，且 Target×RunMs ≤ 3000 mm；每侧单独出指标'
+    Write-Host '  .\tools\tune_auto.ps1 step -Tag s500_1000 -From 500 -To 1000 -HoldMs 1500 -RunMs 4000 -Reps 3 -Side l [-Kp .. -Fan 50]'
+    Write-Host '      step：先稳在 -From，-HoldMs 后阶跃到 -To，量整定时间/超调/稳态（0 起跑不算）'
     Write-Host '  .\tools\tune_auto.ps1 raw -Cmd "?"'
     Write-Host '  .\tools\tune_auto.ps1 metrics -Csv tune_data\xxx.csv   # 离线重算三条指标（也可给目录）'
     Write-Host '  .\tools\tune_auto.ps1 halt'
@@ -745,6 +1025,11 @@ switch ($Mode) {
         Assert-GroupArgs
         $sp = Open-Port $Port
         try { [void](Do-Group $sp) } finally { Close-Port $sp }
+        exit 0
+    }
+    'step' {
+        $sp = Open-Port $Port
+        try { [void](Do-Step $sp) } finally { Close-Port $sp }
         exit 0
     }
     'raw' {

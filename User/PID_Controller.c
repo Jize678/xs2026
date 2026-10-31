@@ -300,10 +300,20 @@ void PID_Init(void)
 
 extern uint8_t star_car;
 
+/* 起步斜坡的状态：放在文件作用域，好让 PID_ResetRamp() 能清掉。
+ * 原来是函数内 static，只在"上电后第一次发车"有效 —— 之后每次进 TRACK
+ * 都因为 first_set 已经是 1 而直接跳到位，等于没有软起动。 */
+static uint8_t s_ramp_done = 0;    /* 起步斜坡是否跑完 */
+static float   s_ramp_base = 0.0f; /* 斜坡里的基准速度 */
+
+void PID_ResetRamp(void)
+{
+	s_ramp_done = 0u;
+	s_ramp_base = 0.0f;
+}
+
 void PID_Control_Update(void)
 {
-	static uint8_t first_set = 0;    /* 起步斜坡是否跑完 */
-	static float   ramp_base = 0;    /* 斜坡里的基准速度 */
 
 	float current_position;
 	float base_target;
@@ -327,16 +337,16 @@ void PID_Control_Update(void)
 	if(star_car)
 	{
 		/* 起步斜坡：基准速度从 0 爬到 base_target，避免一上来就满舵 */
-		if((first_set == 0u) && (ramp_base < base_target))
+		if((s_ramp_done == 0u) && (s_ramp_base < base_target))
 		{
-			ramp_base += PID_RAMP_STEP;
+			s_ramp_base += PID_RAMP_STEP;
 		}
 		else
 		{
-			ramp_base = base_target;
-			first_set = 1u;
+			s_ramp_base = base_target;
+			s_ramp_done = 1u;
 		}
-		base_speed = ramp_base;
+		base_speed = s_ramp_base;
 
 		/* 4. 转向量换算成"速度差"：满舵(±9000) = ±基准速度 */
 		steer_speed = steer * (base_speed / PID_STEER_FULL);
@@ -354,8 +364,7 @@ void PID_Control_Update(void)
 	else
 	{
 		/* 没发车：清干净，下次发车从 0 重新爬坡 */
-		ramp_base  = 0.0f;
-		first_set  = 0u;
+		PID_ResetRamp();
 		SpeedPID_Reset(&g_speed_pid_l);
 		SpeedPID_Reset(&g_speed_pid_r);
 		duty_left  = 0.0f;

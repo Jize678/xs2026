@@ -175,6 +175,7 @@ void PositionPID_Reset(PositionPID_Controller_t *controller);
  */
 void Motor_SetSpeedClamped(uint8_t motor_id, float speed_target);
 void PID_Init(void);
+void PID_ResetRamp(void);      /* 清 TRACK 起步斜坡状态（进/出循迹时调用；不清的话斜坡只在上电后第一次发车生效） */
 void PID_Control_Update(void);
 
 /* 两个环的实例（Car_Control.c 切换模式时需要复位它们） */

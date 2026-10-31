@@ -67,18 +67,10 @@
 #define CAR_TUNE_PRINT_MS     100      /* CSV 打印周期（ms） */
 #define CAR_TUNE_GAIN_MAX     32.0f    /* 单个增益上限（串口传输上限 32.767） */
 #define CAR_TUNE_RUN_MS_MAX   30000    /* `! <ms> <侧>` 的定时上限（ms） */
-/* 目标软起动：`!` 开始后，闭环用的目标速度不是一步跳到 vl/vr，而是用这段
- * 时间按 smoothstep（S 曲线）从 0 爬到设定值（只作用在“目标”上，PID 不变）。
- * 加它的原因（2026-10-31 实测）：轮子静止时静摩擦要 u≈1000~1160 才破得动，
- * 而 500 mm/s 稳态只要 u≈320；阶跃起跑时积分在轮子还没转起来之前就把占空比
- * 堆到 24.5%，一破静摩擦就冲到 1200~2000 mm/s，② 低超调指标（≤10%）必挂。
- * 为什么是 S 曲线而不是线性（2026-10-31 第二轮实测）：线性斜坡到时间点还在
- * 以固定斜率加速，目标一停、轮子带着惯性继续冲，实测 150ms 线性仍过冲 13~16%；
- * smoothstep 的斜率在两端都为 0（3t²-2t³ 的导数 6t(1-t)），到点加速度为 0，
- * 轮子是“滑进来”的，过冲只剩几个百分点。
- * 斜坡时长可以串口在线改（tr<ms>，0 = 不软起动），改完不用重烧就能扫参。 */
-#define CAR_TUNE_RAMP_MS      240      /* 上电默认（ms），可在 tune 模式下用 tr 改 */
-#define CAR_TUNE_RAMP_MAX     2000     /* tr 可设上限（ms） */
+/* 调参实验的目标是**阶跃**的：`vl`/`vr` 发下去就是一步到位，PID 看到的是真正的
+ * 设定值跳变。2026-10-31 试过的 smoothstep 软起动（`tr<ms>` 可调）已经删除——
+ * 它只塑形“0→目标”那一次起跑，而实测需求是“速度阶跃 500↔1000↔1500 能否在
+ * 100~300ms 内整定”，起跑抖动不重要；而且中途改目标时它会把新目标按进度打折。 */
 
 /* Car_Control_Update() 的调用周期，等于控制任务周期（2ms） */
 #define CAR_CTRL_TICK_MS      2
@@ -129,7 +121,6 @@ typedef struct
 	uint8_t side;           /* 本次 ! 的侧别（Car_TuneSide_t） */
 	uint16_t run_ms;        /* 本次 ! 的定时（ms），停止后保留显示 */
 	uint16_t fan_duty;      /* tf 设定的负压占空比（0~1000），0 = 不带负压 */
-	uint16_t ramp_ms;       /* tr 设定的目标软起动时长（ms），0 = 不软起动 */
 	uint8_t  arming;        /* 1 = 正在等电调解锁（1.5s），闭环还没开始 */
 	int16_t target_l;       /* 左轮目标 mm/s */
 	int16_t target_r;       /* 右轮目标 mm/s */
@@ -163,8 +154,6 @@ void        Car_Control_TuneSetGain(Car_Wheel_t wheel, Car_TuneTerm_t term, floa
                                                                   /* kl/il/dl 等：在线改增益 */
 void        Car_Control_TuneSetFan(uint16_t duty);
                                                                   /* tf：设定下次 ! 实验的负压占空比（0~1000，0=不带） */
-void        Car_Control_TuneSetRamp(uint16_t ms);
-                                                                  /* tr：设定目标软起动时长（0~CAR_TUNE_RAMP_MAX，0=不软起动） */
 void        Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap);   /* 取当前状态（串口打印用） */
                                                     /* 延时风扇：等 CAR_FAN_DELAY_MS 后跑 CAR_FAN_TEST_MS 再停 */
 

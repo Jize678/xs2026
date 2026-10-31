@@ -352,10 +352,9 @@ static void Serial_SendTuneParams(void)
 	           lp / 1000, lp % 1000, li / 1000, li % 1000, ld / 1000, ld % 1000);
 	Serial_Log("[tune] R kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n",
 	           rp / 1000, rp % 1000, ri / 1000, ri % 1000, rd / 1000, rd % 1000);
-	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u limit=%d fan=%u/1000 ramp=%u\r\n",
+	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u limit=%d fan=%u/1000\r\n",
 	           (int)s.target_l, (int)s.target_r, (unsigned int)s.running,
-	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty,
-	           (unsigned int)s.ramp_ms);
+	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty);
 }
 /* `! <ms> <l|r|all>` 收齐后：忙就提示，空闲就下发定时闭环 */
 static void Serial_TuneRunStart(uint8_t side)
@@ -459,31 +458,6 @@ static void Serial_CommitNumber(void)
 		{
 			Serial_Log("[tune] fan %u%%: next ! arms 1.5s then runs with vacuum\r\n",
 			           (unsigned int)pct);
-		}
-		return;
-	}
-
-	/* 调参模式的目标软起动时长（tr<ms>）：只在下次 `!` 起跑段生效 */
-	if(cmd == 'M')
-	{
-		if(s_num_digits == 0u)
-		{
-			Serial_Log("tune ramp: send tr0~tr2000 (e.g. tr240), 0 = no ramp\r\n");
-			return;
-		}
-		if(pct > (uint16_t)CAR_TUNE_RAMP_MAX)
-		{
-			pct = (uint16_t)CAR_TUNE_RAMP_MAX;
-		}
-		App_PostCmdArg(APP_CMD_TUNE_RAMP, 0, (int16_t)pct);
-		if(pct == 0u)
-		{
-			Serial_Log("[tune] ramp off: next ! steps straight to target\r\n");
-		}
-		else
-		{
-			Serial_Log("[tune] ramp %u ms: next ! slides 0->target in %u ms\r\n",
-			           (unsigned int)pct, (unsigned int)pct);
 		}
 		return;
 	}
@@ -738,17 +712,6 @@ static void Serial_HandleByte(uint8_t ch)
 			s_num_cmd = 'P';
 			return;
 		}
-		/* "tr<ms>"：目标软起动的时长（0 = 不软起动，等于阶跃） */
-		if((ch == 'r') || (ch == 'R'))
-		{
-			s_test_state = 0;
-			s_num = 0;
-			s_num_digits = 0;
-			s_frac = 0;
-			s_frac_div = 0;
-			s_num_cmd = 'M';
-			return;
-		}
 		s_test_state = 0;
 	}
 	else if(s_test_state == 2u)
@@ -810,7 +773,6 @@ static void Serial_HandleByte(uint8_t ch)
 			App_PostCmd(APP_CMD_TUNE_ENTER, 0);
 			Serial_Log("[tune] enter: ! <ms> l|r|all | hlt | vl/vr<mm/s> | kpl0.6 | kq | 0 exit\r\n");
 			Serial_Log("[tune] tf0~100: vacuum for the next ! (0 = no fan)\r\n");
-			Serial_Log("[tune] tr0~2000: soft-start ramp for the next ! (0 = off)\r\n");
 			return;
 		}
 	}

@@ -20,7 +20,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('help', 'check', 'gains', 'group', 'step', 'raw', 'halt', 'selftest', 'metrics')]
+    [ValidateSet('help', 'check', 'gains', 'group', 'step', 'profile', 'raw', 'halt', 'selftest', 'metrics')]
     [string]$Mode = 'help',
 
     [string]$Port = 'COM12',
@@ -40,6 +40,10 @@ param(
     # step 模式：先稳住 -From 这个速度，-HoldMs 之后把目标阶跃到 -Target，量整定时间
     [int]$From = 500,
     [int]$HoldMs = 1500,
+
+    # profile 模式：一趟内依次跑多个速度段，CSV 的 t 列记录每次阶跃
+    #   格式 "500:1500,1000:1500,1500:1500,1000:1500,500:1500"（速度:停留ms）
+    [string]$Steps = '500:1500,1000:1500,1500:1500,1000:1500,500:1500',
 
     # 两侧同时闭环（-Side all）是直行工况，必须显式解锁，并且目标×时间 ≤ MaxTravelMm
     [switch]$AllowBoth,
@@ -856,6 +860,145 @@ function Do-Step($sp) {
     }
 }
 
+# 把一趟 profile 的 CSV 按目标列（tL/tR）的变化切成若干段，返回每次“目标真的变了”的边界。
+# 固件本来就在 CSV 里打印设定值，所以多段实验完全可以事后按 t 列切分，不需要额外握手。
+function Split-ProfileTransitions([object[]]$Rows) {
+    $rows = @($Rows | Sort-Object ms)
+    $out = New-Object System.Collections.Generic.List[object]
+    for ($i = 1; $i -lt $rows.Count; $i++) {
+        $a = [int]$rows[$i - 1].t
+        $b = [int]$rows[$i].t
+        if ($a -ne $b) {
+            $out.Add([pscustomobject]@{ idx = $i; from = $a; to = $b; ms = $rows[$i].ms })
+        }
+    }
+    return , $out.ToArray()
+}
+
+function Parse-StepPlan([string]$Spec) {
+    $plan = New-Object System.Collections.Generic.List[object]
+    foreach ($item in ($Spec -split ',')) {
+        $it = $item.Trim()
+        if ($it -eq '') { continue }
+        $p = $it -split ':'
+        if ($p.Count -ne 2) { throw ("-Steps 格式应为 speed:holdMs，例如 500:1500,1000:1500，收到 '{0}'" -f $it) }
+        $spd = [int]$p[0]
+        $hold = [int]$p[1]
+        if ($spd -lt 250 -or $spd -gt 2000) { throw ("-Steps 里的速度 {0} 超出 250~2000 mm/s" -f $spd) }
+        if ($hold -lt 600 -or $hold -gt 8000) { throw ("-Steps 里的停留 {0} ms 超出 600~8000 ms（至少要够整定 + 稳态统计）" -f $hold) }
+        $plan.Add([pscustomobject]@{ speed = $spd; hold = $hold })
+    }
+    if ($plan.Count -lt 2) { throw '-Steps 至少要两段，否则没有阶跃可测' }
+    return , $plan
+}
+
+function Do-Profile($sp) {
+    # 一趟多段：一次发车按时间表依次改目标，CSV 的 t 列就是每次阶跃的标记。
+    # 只允许单侧（另一侧一直 0）：两侧一起改目标＝直行，必须单独走 -AllowBoth 流程。
+    if ($Side -eq 'all') { throw 'profile 只支持单侧（-Side l 或 -Side r）' }
+    $plan = Parse-StepPlan $Steps
+    $totalHold = 0; foreach ($s in $plan) { $totalHold += $s.hold }
+    $runMs = $totalHold + 1200
+    $spec = ($plan | ForEach-Object { '{0}:{1}' -f $_.speed, $_.hold }) -join ','
+    if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+    Write-Info ('== profile tag={0} side={1} fan={2} steps[{3}] hold={4}ms run={5}ms ==' -f $Tag, $Side, $Fan, $spec, $totalHold, $runMs)
+
+    [void](Send-Cmd $sp 'tune' 400)
+    $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
+    if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
+        Write-Info '-- set gains'
+        Set-Gains $sp $Side $Kp $Ki $Kd
+    }
+    $p = Get-TuneParams $sp
+    $k = $Side.ToUpper()
+    Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
+
+    $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
+    for ($rep = 1; $rep -le $Reps; $rep++) {
+        Write-Info ("-- rep {0}/{1}" -f $rep, $Reps)
+        Send-Targets $sp @($Side) $plan[0].speed
+        $pre = Send-Cmd $sp ('! ' + $runMs + ' ' + $Side) 300
+        if (@($pre | Where-Object { $_ -match 'busy' }).Count -gt 0) {
+            Write-Warning '  busy: still running, sending hlt and waiting 1s'
+            [void](Send-Cmd $sp 'hlt' 300)
+            Start-Sleep -Milliseconds 900
+            Send-Targets $sp @($Side) $plan[0].speed
+            $pre = Send-Cmd $sp ('! ' + $runMs + ' ' + $Side) 300
+        }
+        $repLines = @($pre)
+        if ($armMs -gt 0) {
+            Write-Host ('  [arm] vacuum up, waiting {0} ms' -f $armMs) -ForegroundColor DarkGray
+            $repLines += Collect $sp ($armMs + 100) -Quiet
+        }
+
+        for ($si = 0; $si -lt $plan.Count; $si++) {
+            $seg = $plan[$si]
+            Write-Host ('  [{0}/{1}] {2} mm/s x {3} ms' -f ($si + 1), $plan.Count, $seg.speed, $seg.hold) -ForegroundColor DarkGray
+            $repLines += Collect $sp $seg.hold -Quiet
+            if ($si -lt $plan.Count - 1) {
+                Send-Targets $sp @($Side) $plan[$si + 1].speed
+            }
+        }
+
+        [void](Send-Cmd $sp 'hlt' 400)
+        $repLines += Collect $sp 1500 -Until '\[tune\] stop' -Quiet
+
+        $csvLines = @($repLines | Where-Object { $_ -match $CsvRegex })
+        $file = Join-Path $OutDir ('{0:yyyyMMdd_HHmmss}_{1}_profile_{2}_r{3}.csv' -f (Get-Date), $Tag, $Side, $rep)
+        Set-Content -Path $file -Value $csvLines -Encoding ASCII
+        $rowsFull = ConvertTo-FullRows $csvLines
+        Write-Host ("  saved {0} rows -> {1}" -f $rowsFull.Count, $file) -ForegroundColor DarkGray
+
+        $rowsClean = Drop-StalePrefix $rowsFull
+        if ($rowsClean.Count -eq 0) { Write-Warning '  no rows, skip'; continue }
+        $lastTgt = [int]$rowsClean[$rowsClean.Count - 1].tL
+        if ($Side -eq 'r') { $lastTgt = [int]$rowsClean[$rowsClean.Count - 1].tR }
+        $proj = Project-Side (Trim-StopTail $rowsClean $lastTgt $Side) $Side
+        $trans = Split-ProfileTransitions $proj
+        if ($trans.Count -eq 0) { Write-Warning '  no target change found in t column'; continue }
+        Write-Host ("  transitions: {0}" -f $trans.Count) -ForegroundColor Gray
+
+        $log = New-Object System.Collections.Generic.List[string]
+        if ($LogPath -ne '') {
+            $log.Add('------------------------------------------------------------')
+            $log.Add(('[{0}] profile tag={1} rep={2} side={3} steps={4} fan={5}' -f `
+                        (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $Side, $spec, $Fan))
+            $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd"))
+            $log.Add(('  CSV: {0}' -f $file))
+        }
+
+        for ($j = 0; $j -lt $trans.Count; $j++) {
+            $i0 = [math]::Max(0, $trans[$j].idx - 8)          # 阶跃前 ~200 ms 作为 pre 参照
+            if ($j -lt $trans.Count - 1) { $i1 = $trans[$j + 1].idx - 1 } else { $i1 = $proj.Count - 1 }
+            if ($i1 -le $trans[$j].idx + 4) { continue }
+            $slice = $proj[$i0..$i1]
+            $m = Get-StepMetrics $slice $trans[$j].from $trans[$j].to
+            $v = Get-StepVerDict $m
+            Write-Host ('  {0}->{1}:' -f $trans[$j].from, $trans[$j].to) -ForegroundColor Cyan
+            Show-StepMetrics $m $v
+            if ($LogPath -ne '' -and $m.valid) {
+                $log.Add(('  {0}->{1}: pre={2} (sd {3})  settle={4}ms  peak_raw={5} (+{6}%)  peak_block=+{7}%  steady={8}  err={9}%  sd={10}  u_mean={11}  => [1]{12} [2]{13} [3]{14}' -f `
+                            $trans[$j].from, $trans[$j].to, (Fmt $m.pre_mean), (Fmt $m.pre_sd), (Fmt $m.settle), `
+                            (Fmt $m.peak_raw), (Fmt $m.overshoot_pct), (Fmt $m.peak_block_pct), (Fmt $m.steady_mean), `
+                            (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), (Fmt $m.u_mean), $v.A_settle, $v.B_over, $v.C_steady))
+            }
+            if ($m.valid) {
+                $sum = Join-Path $OutDir 'step_summary.csv'
+                if (-not (Test-Path $sum)) {
+                    Set-Content -Path $sum -Value 'time,tag,side,from,to,kp,ki,kd,reps,settle,overshoot_pct,err_pct,sd,u_mean,pass1,pass2,pass3' -Encoding ASCII
+                }
+                Add-Content -Path $sum -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
+                        (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $Side, $trans[$j].from, $trans[$j].to, `
+                        $p."${k}_kp", $p."${k}_ki", $p."${k}_kd", 1, $m.settle, $m.overshoot_pct, $m.steady_err_pct, `
+                        $m.steady_sd, $m.u_mean, $v.A_settle, $v.B_over, $v.C_steady) -Encoding ASCII
+            }
+        }
+        if ($LogPath -ne '') { Add-Content -Path $LogPath -Value $log -Encoding UTF8 }
+        if ($rep -lt $Reps) { Write-Host '  [gap] waiting 2.6s' -ForegroundColor DarkGray; Start-Sleep -Milliseconds 2600 }
+    }
+}
+
 function Invoke-SelfTest {
     Write-Info '== selftest: synthetic step response =='
     $rows = New-Object System.Collections.Generic.List[object]
@@ -957,6 +1100,35 @@ function Invoke-SelfTest {
     Show-StepMetrics $dm $dvd
     if ($dm.valid -and $dvd.A_settle) { Write-Host '  step 1500->1000 OK' -ForegroundColor Green }
     else { Write-Warning '  step 1500->1000 metrics not as expected' }
+
+    Write-Info '== selftest: profile 三段（500/1000/1500 各 1500ms，应切出 2 个阶跃） =='
+    $planT = @(500, 1000, 1500)
+    $holdT = 1500
+    $prows = New-Object System.Collections.Generic.List[object]
+    $fv2 = 500.0
+    $tgtIdx = 0
+    for ($t = 0; $t -le ($holdT * $planT.Count); $t += 25) {
+        $tgtIdx = [math]::Min($planT.Count - 1, [int][math]::Floor($t / $holdT))
+        $tgt = $planT[$tgtIdx]
+        $fv2 += ($tgt - $fv2) * (1.0 - [math]::Exp(-25.0 / 40.0))
+        $prows.Add([pscustomobject]@{ ms = 60000 + $t; t = $tgt; f = [int][math]::Round($fv2); u = 900 })
+    }
+    $tr = Split-ProfileTransitions $prows
+    Write-Host ('  transitions found: {0} -> [{1}]' -f $tr.Count, (($tr | ForEach-Object { '{0}->{1}' -f $_.from, $_.to }) -join ', ')) -ForegroundColor Green
+    if ($tr.Count -ne 2) { Write-Warning '  profile split MISMATCH (expected 2 transitions)'; exit 1 }
+    $okP = $true
+    for ($j = 0; $j -lt $tr.Count; $j++) {
+        $i0 = [math]::Max(0, $tr[$j].idx - 8)
+        if ($j -lt $tr.Count - 1) { $i1 = $tr[$j + 1].idx - 1 } else { $i1 = $prows.Count - 1 }
+        $slice = $prows[$i0..$i1]
+        $pm = Get-StepMetrics $slice $tr[$j].from $tr[$j].to
+        $pv = Get-StepVerDict $pm
+        Write-Host ('  {0}->{1}:' -f $tr[$j].from, $tr[$j].to) -ForegroundColor Cyan
+        Show-StepMetrics $pm $pv
+        if (-not ($pm.valid -and $pv.A_settle -and $pv.B_over -and $pv.C_steady)) { $okP = $false }
+    }
+    if ($okP) { Write-Host '  profile split OK' -ForegroundColor Green }
+    else { Write-Warning '  profile split metrics not as expected' }
 }
 
 function Do-Metrics([string]$Path) {
@@ -997,6 +1169,8 @@ function Show-Help {
     Write-Host '      -Side all：两侧同时闭环（直行），必须 -AllowBoth，且 Target×RunMs ≤ 3000 mm；每侧单独出指标'
     Write-Host '  .\tools\tune_auto.ps1 step -Tag s500_1000 -From 500 -To 1000 -HoldMs 1500 -RunMs 4000 -Reps 3 -Side l [-Kp .. -Fan 50]'
     Write-Host '      step：先稳在 -From，-HoldMs 后阶跃到 -To，量整定时间/超调/稳态（0 起跑不算）'
+    Write-Host '  .\tools\tune_auto.ps1 profile -Tag p1 -Steps "500:1500,1000:1500,1500:1500,1000:1500,500:1500" -Side l -Fan 50'
+    Write-Host '      profile：一趟发车跑完多段速度，事后按 CSV 的 t 列切出每次阶跃逐段判①settle ②超调 ③稳态（单侧专用）'
     Write-Host '  .\tools\tune_auto.ps1 raw -Cmd "?"'
     Write-Host '  .\tools\tune_auto.ps1 metrics -Csv tune_data\xxx.csv   # 离线重算三条指标（也可给目录）'
     Write-Host '  .\tools\tune_auto.ps1 halt'
@@ -1030,6 +1204,11 @@ switch ($Mode) {
     'step' {
         $sp = Open-Port $Port
         try { [void](Do-Step $sp) } finally { Close-Port $sp }
+        exit 0
+    }
+    'profile' {
+        $sp = Open-Port $Port
+        try { [void](Do-Profile $sp) } finally { Close-Port $sp }
         exit 0
     }
     'raw' {

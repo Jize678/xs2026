@@ -352,9 +352,10 @@ static void Serial_SendTuneParams(void)
 	           lp / 1000, lp % 1000, li / 1000, li % 1000, ld / 1000, ld % 1000);
 	Serial_Log("[tune] R kp=%d.%03d ki=%d.%03d kd=%d.%03d\r\n",
 	           rp / 1000, rp % 1000, ri / 1000, ri % 1000, rd / 1000, rd % 1000);
-	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u limit=%d fan=%u/1000\r\n",
+	Serial_Log("[tune] tgt L=%d R=%d mm/s run=%u limit=%d fan=%u/1000 ff=%u.%03u\r\n",
 	           (int)s.target_l, (int)s.target_r, (unsigned int)s.running,
-	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty);
+	           (int)g_speed_pid_l.param.output_max, (unsigned int)s.fan_duty,
+	           (unsigned int)(s.ff_milli / 1000u), (unsigned int)(s.ff_milli % 1000u));
 }
 /* `! <ms> <l|r|all>` 收齐后：忙就提示，空闲就下发定时闭环 */
 static void Serial_TuneRunStart(uint8_t side)
@@ -474,6 +475,26 @@ static void Serial_CommitNumber(void)
 		               0, (int16_t)pct);
 		Serial_Log("%s speed test %u (10s)\r\n",
 		           (cmd == 'T') ? "left" : "right", (unsigned int)pct);
+		return;
+	}
+
+	/* 调参模式的目标阶跃前馈（kff；cmd = 'K'）：千分比，支持小数 */
+	if(cmd == 'K')
+	{
+		uint32_t milli = (uint32_t)s_num * 1000u + (uint32_t)s_frac;
+
+		if(s_num_digits == 0u)
+		{
+			Serial_Log("ff: kff0.6 = 0.6 duty/(mm/s), kff0 = off\r\n");
+			return;
+		}
+		if(milli > 2000u)
+		{
+			milli = 2000u;
+		}
+		App_PostCmdArg(APP_CMD_TUNE_FF, 0, (int16_t)milli);
+		Serial_Log("[tune] ff=%d.%03d duty/(mm/s)%s\r\n", (int)(milli / 1000u), (int)(milli % 1000u),
+		           (milli == 0u) ? " (off)" : "");
 		return;
 	}
 
@@ -773,6 +794,7 @@ static void Serial_HandleByte(uint8_t ch)
 			App_PostCmd(APP_CMD_TUNE_ENTER, 0);
 			Serial_Log("[tune] enter: ! <ms> l|r|all | hlt | vl/vr<mm/s> | kpl0.6 | kq | 0 exit\r\n");
 			Serial_Log("[tune] tf0~100: vacuum for the next ! (0 = no fan)\r\n");
+			Serial_Log("[tune] kff0.6: target-step feedforward, duty per mm/s (0 = off)\r\n");
 			return;
 		}
 	}
@@ -813,7 +835,26 @@ static void Serial_HandleByte(uint8_t ch)
 			s_k_state = 2;
 			return;
 		}
+		/* kff：目标阶跃前馈系数（kff0.6 = 0.6 占空比/(mm/s)） */
+		if((ch == 'f') || (ch == 'F'))
+		{
+			s_k_state = 3;
+			return;
+		}
 		s_k_state = 0;
+	}
+	else if(s_k_state == 3u)
+	{
+		s_k_state = 0;
+		if((ch == 'f') || (ch == 'F'))
+		{
+			s_num = 0;
+			s_num_digits = 0;
+			s_frac = 0;
+			s_frac_div = 0;
+			s_num_cmd = 'K';
+		}
+		return;
 	}
 	else
 	{

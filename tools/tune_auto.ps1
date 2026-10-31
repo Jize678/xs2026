@@ -37,6 +37,9 @@ param(
     # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
     [ValidateRange(0, 100)][int]$Fan = 0,
 
+    # 目标阶跃前馈（kff）：千分比占空比/(mm/s)，0 = 关掉前馈；固件默认 0.600
+    [ValidateRange(0, 2000)][int]$FF = 600,
+
     # step 模式：先稳住 -From 这个速度，-HoldMs 之后把目标阶跃到 -Target，量整定时间
     [int]$From = 500,
     [int]$HoldMs = 1500,
@@ -131,7 +134,7 @@ function Collect($sp, [int]$Ms, [string]$Until = '', [switch]$Quiet) {
 #---- 安全门：调参期间只允许单侧闭环（见 速度环调参说明.md §9.0）----
 # 单轮驱动时车走固定半径圆环、行程有界；两轮驱动是直行，会冲出去撞车。
 # 这里用白名单兜住：不在清单里的指令一律拒发，防止手滑把 `1`/`2` 发出去。
-$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
+$Script:SafeCmdPattern = '^(\?|kq|k[pdi][lr]?\d+(\.\d+)?|kff\d+(\.\d+)?|0|hlt|tune|tf\d+|vl\d+|vr\d+|bmq|g|z|!.*)$'
 
 function Assert-SafeCmd([string]$Text) {
     $t = $Text.Trim()
@@ -640,8 +643,11 @@ function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
     $res.step_ms = $stepMs
 
     # 阶跃前 200 ms 的实际速度：确认确实稳在 From 上（否则这次阶跃没有意义）
-    $preEnd = [math]::Max(0, $idx - 1)
-    $pre = @($rows[0..$preEnd] | Where-Object { $_.ms -ge ($stepMs - 200) })
+    # 发指令那一瞬蓝牙有 200~300ms 的接收盲区（固件 TX 环形缓冲只有 128 字节），
+    # 所以“阶跃前”不能用时间窗，改成最近 6 帧。
+    if ($idx -ge 1) {
+        $pre = @($rows[[math]::Max(0, $idx - 6)..($idx - 1)])
+    } else { $pre = @() }
     if ($pre.Count -ge 3) {
         $pv = @($pre | ForEach-Object { [double]$_.f })
         $pm = ($pv | Measure-Object -Average).Average
@@ -753,6 +759,7 @@ function Do-Step($sp) {
 
     [void](Send-Cmd $sp 'tune' 400)
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    [void](Send-Cmd $sp ('kff' + ([double]$FF / 1000.0).ToString('0.000', [Globalization.CultureInfo]::InvariantCulture)) 300)
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'
@@ -898,13 +905,16 @@ function Do-Profile($sp) {
     if ($Side -eq 'all') { throw 'profile 只支持单侧（-Side l 或 -Side r）' }
     $plan = Parse-StepPlan $Steps
     $totalHold = 0; foreach ($s in $plan) { $totalHold += $s.hold }
-    $runMs = $totalHold + 1200
+    $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
+    # 余量要盖住 1.5s 电调解锁 + 每段一次改目标的开销，否则最后一整段会被 `!` 提前掐断
+    $runMs = $armMs + $totalHold + 2000
     $spec = ($plan | ForEach-Object { '{0}:{1}' -f $_.speed, $_.hold }) -join ','
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
     Write-Info ('== profile tag={0} side={1} fan={2} steps[{3}] hold={4}ms run={5}ms ==' -f $Tag, $Side, $Fan, $spec, $totalHold, $runMs)
 
     [void](Send-Cmd $sp 'tune' 400)
     $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    [void](Send-Cmd $sp ('kff' + ([double]$FF / 1000.0).ToString('0.000', [Globalization.CultureInfo]::InvariantCulture)) 300)
     $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0) {
         Write-Info '-- set gains'
@@ -914,7 +924,6 @@ function Do-Profile($sp) {
     $k = $Side.ToUpper()
     Write-Host ('  now {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd") -ForegroundColor Green
 
-    $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
     for ($rep = 1; $rep -le $Reps; $rep++) {
         Write-Info ("-- rep {0}/{1}" -f $rep, $Reps)
         Send-Targets $sp @($Side) $plan[0].speed
@@ -937,7 +946,13 @@ function Do-Profile($sp) {
             Write-Host ('  [{0}/{1}] {2} mm/s x {3} ms' -f ($si + 1), $plan.Count, $seg.speed, $seg.hold) -ForegroundColor DarkGray
             $repLines += Collect $sp $seg.hold -Quiet
             if ($si -lt $plan.Count - 1) {
-                Send-Targets $sp @($Side) $plan[$si + 1].speed
+                # 立刻写、不 sleep 不 Collect：把“发指令 → 继续收数”的空窗压到最小。
+                # 固件 TX 环形缓冲只有 128 字节（≈3 行 CSV），250ms 空窗能丢 ~9 行；
+                # 实测阶跃处出现过 283ms 盲区，会把真实的超调峰值整段吞掉。
+                $cmd = if ($Side -eq 'r') { 'vr' } else { 'vl' }
+                Assert-SafeCmd ($cmd + $plan[$si + 1].speed)
+                Write-Host ("  >> " + $cmd + $plan[$si + 1].speed) -ForegroundColor Yellow
+                $sp.Write($cmd + $plan[$si + 1].speed + "`r`n")
             }
         }
 
@@ -952,8 +967,8 @@ function Do-Profile($sp) {
 
         $rowsClean = Drop-StalePrefix $rowsFull
         if ($rowsClean.Count -eq 0) { Write-Warning '  no rows, skip'; continue }
-        $lastTgt = [int]$rowsClean[$rowsClean.Count - 1].tL
-        if ($Side -eq 'r') { $lastTgt = [int]$rowsClean[$rowsClean.Count - 1].tR }
+        $tcol = if ($Side -eq 'r') { 'tR' } else { 'tL' }
+        $lastTgt = [int](($rowsClean | ForEach-Object { [int]$_.$tcol } | Measure-Object -Maximum).Maximum)
         $proj = Project-Side (Trim-StopTail $rowsClean $lastTgt $Side) $Side
         $trans = Split-ProfileTransitions $proj
         if ($trans.Count -eq 0) { Write-Warning '  no target change found in t column'; continue }

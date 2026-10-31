@@ -180,6 +180,11 @@ static void App_ProcessCommands(void)
 				Car_Control_TuneSetFan((uint16_t)cmd.arg * 10u);
 				break;
 
+			case APP_CMD_TUNE_FF:
+				/* kff：arg16 = 前馈系数×1000（占空比/(mm/s)），0 = 关掉前馈 */
+				Car_Control_TuneSetFF((float)(cmd.arg16) / 1000.0f);
+				break;
+
 			default:
 				break;
 		}

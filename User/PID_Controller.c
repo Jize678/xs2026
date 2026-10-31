@@ -112,6 +112,29 @@ void SpeedPID_Reset(SpeedPID_Controller_t *controller)
 	controller->last_i_term = 0.0f;
 }
 
+/**
+ * @brief 前馈跳变：把 last_output（增量式的积分器状态）一次性挪 duty_delta
+ * @note  只改输出状态，不动 last_error/last_error2，所以下一拍的 P/D 项仍然
+ *        按“上一拍误差”算，跳变不会被误当成一个大误差而再叠一次。
+ */
+void SpeedPID_Bump(SpeedPID_Controller_t *controller, float duty_delta)
+{
+	float out;
+
+	if(controller == NULL) return;
+
+	out = controller->last_output + duty_delta;
+	if(out > controller->param.output_max)
+	{
+		out = controller->param.output_max;
+	}
+	else if(out < controller->param.output_min)
+	{
+		out = controller->param.output_min;
+	}
+	controller->last_output = out;
+}
+
 // ==================== 位置环PID实现 ====================
 
 /**

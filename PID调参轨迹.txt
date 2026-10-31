@@ -140,3 +140,32 @@
         -Side all -AllowBoth -Fan 50
 
   （下列数据随每趟实测追加）
+------------------------------------------------------------
+[2026-10-31 16:02:35] profile tag=step4_l rep=1 side=l steps=500:1500,1000:1500,1500:1500,1000:1500,500:1500 fan=50
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_160235_step4_l_profile_l_r1.csv
+  500->1000: pre=n/a (sd n/a)  settle=100ms  peak_raw=1116 (+11.6%)  peak_block=+1.4%  steady=997  err=-0.3%  sd=9.4  u_mean=1014  => [1]True [2]False [3]True
+  1000->1500: pre=n/a (sd n/a)  settle=100ms  peak_raw=1619 (+7.9%)  peak_block=+1.5%  steady=1500.9  err=0.06%  sd=13.6  u_mean=1314  => [1]True [2]True [3]True
+  1500->1000: pre=n/a (sd n/a)  settle=1500ms  peak_raw=903 (+9.7%)  peak_block=+4.3%  steady=987.4  err=-1.26%  sd=7.1  u_mean=1018  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-10-31 16:04:46] profile tag=step4_l_b rep=1 side=l steps=500:1500,1000:1500,1500:1500,1000:1500,500:1500 fan=50
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_160446_step4_l_b_profile_l_r1.csv
+  500->1000: pre=510.5 (sd 101.2)  settle=1400ms  peak_raw=1123 (+12.3%)  peak_block=+3.5%  steady=991.8  err=-0.82%  sd=8.8  u_mean=1037  => [1]False [2]False [3]True
+  1000->1500: pre=983.5 (sd 70.1)  settle=1500ms  peak_raw=1615 (+7.7%)  peak_block=+2.2%  steady=1499.3  err=-0.04%  sd=0  u_mean=1355  => [1]False [2]True [3]True
+  1500->1000: pre=1488.3 (sd 46.1)  settle=1500ms  peak_raw=688 (+31.2%)  peak_block=+14.6%  steady=1004.2  err=0.43%  sd=0  u_mean=993  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-10-31 16:06:26] profile tag=step4_l_f25 rep=1 side=l steps=500:1500,1000:1500,1500:1500,1000:1500,500:1500 fan=25
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_160626_step4_l_f25_profile_l_r1.csv
+------------------------------------------------------------
+[2026-10-31 16:16:34] profile tag=step4_l_c rep=1 side=l steps=500:1500,1000:1500,1500:1500,1000:1500,500:1500 fan=50
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_161634_step4_l_c_profile_l_r1.csv
+------------------------------------------------------------
+[2026-10-31 16:41:23] profile tag=step4_l_d rep=1 side=l steps=500:1500,1000:1500,1500:1500,1000:1500,500:1500 fan=50
+  gains L: kp=0.2 ki=0.08 kd=0.04
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_164123_step4_l_d_profile_l_r1.csv
+  500->1000: pre=495.7 (sd 35.4)  settle=1100ms  peak_raw=1257 (+25.7%)  peak_block=+7.3%  steady=992.2  err=-0.78%  sd=14.3  u_mean=988  => [1]False [2]False [3]True
+  1000->1500: pre=981.5 (sd 45.8)  settle=1400ms  peak_raw=1800 (+20%)  peak_block=+2.5%  steady=1482  err=-1.2%  sd=12  u_mean=1319  => [1]False [2]False [3]True
+  1500->1000: pre=1496.2 (sd 49.9)  settle=1100ms  peak_raw=704 (+29.6%)  peak_block=+14.8%  steady=997.4  err=-0.26%  sd=9.4  u_mean=934  => [1]False [2]False [3]True

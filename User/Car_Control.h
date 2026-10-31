@@ -67,6 +67,13 @@
 #define CAR_TUNE_PRINT_MS     100      /* CSV 打印周期（ms） */
 #define CAR_TUNE_GAIN_MAX     32.0f    /* 单个增益上限（串口传输上限 32.767） */
 #define CAR_TUNE_RUN_MS_MAX   30000    /* `! <ms> <侧>` 的定时上限（ms） */
+/* 目标阶跃前馈（2026-10-31 加）：目标改了 Δ(mm/s)，就把速度环输出直接挪
+ * K·Δ 个占空比，不等误差累积。K 用实测静态增益标定：500 mm/s ≈ 693、
+ * 1000 ≈ 945、1500 ≈ 1300 占空比 ⇒ 0.5~0.7，取 0.60。
+ * 前馈只做“粗顶”，残差仍由 P/I 收，所以稳态精度不变；电池电压、负压大小
+ * 会让 K 漂，用串口 `kff<0~2000>`（千分比）在线调，掉电不保存。 */
+#define CAR_TUNE_FF_DEFAULT   0.60f
+#define CAR_TUNE_FF_MAX       2.00f
 /* 调参实验的目标是**阶跃**的：`vl`/`vr` 发下去就是一步到位，PID 看到的是真正的
  * 设定值跳变。2026-10-31 试过的 smoothstep 软起动（`tr<ms>` 可调）已经删除——
  * 它只塑形“0→目标”那一次起跑，而实测需求是“速度阶跃 500↔1000↔1500 能否在
@@ -121,6 +128,7 @@ typedef struct
 	uint8_t side;           /* 本次 ! 的侧别（Car_TuneSide_t） */
 	uint16_t run_ms;        /* 本次 ! 的定时（ms），停止后保留显示 */
 	uint16_t fan_duty;      /* tf 设定的负压占空比（0~1000），0 = 不带负压 */
+	uint16_t ff_milli;      /* kff 设定的前馈系数（×1000，0 = 不带前馈） */
 	uint8_t  arming;        /* 1 = 正在等电调解锁（1.5s），闭环还没开始 */
 	int16_t target_l;       /* 左轮目标 mm/s */
 	int16_t target_r;       /* 右轮目标 mm/s */
@@ -154,6 +162,8 @@ void        Car_Control_TuneSetGain(Car_Wheel_t wheel, Car_TuneTerm_t term, floa
                                                                   /* kl/il/dl 等：在线改增益 */
 void        Car_Control_TuneSetFan(uint16_t duty);
                                                                   /* tf：设定下次 ! 实验的负压占空比（0~1000，0=不带） */
+void        Car_Control_TuneSetFF(float duty_per_mm_s);
+                                                                  /* kff：目标阶跃前馈系数（占空比/(mm/s)，0=关） */
 void        Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap);   /* 取当前状态（串口打印用） */
                                                     /* 延时风扇：等 CAR_FAN_DELAY_MS 后跑 CAR_FAN_TEST_MS 再停 */
 

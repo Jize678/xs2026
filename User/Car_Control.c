@@ -40,6 +40,14 @@ static uint32_t    s_tune_left_ms  = 0;  /* 本次 ! 剩余时长（ms），2ms 
 static uint16_t    s_tune_fan_duty = 0;  /* tf 设定 0~1000 */
 static uint16_t    s_tune_arm_ticks = 0; /* 负压建立倒计时（tick），>0 = 准备中 */
 
+/* 目标阶跃前馈（kff，占空比/(mm/s)）：vl/vr 一改，就把速度环输出按 K·Δ目标
+ * 直接挪过去，不让积分去"追"。s_tune_prev_l/r 记着上一拍真正下发过的目标，
+ * 一旦检测到跳变就补一次前馈；停车/重新发车时清 0，这样起跑那一下也吃到前馈
+ * （0→目标 同样是阶跃，而且是最大的一次）。 */
+static float       s_tune_ff     = CAR_TUNE_FF_DEFAULT;
+static int16_t     s_tune_prev_l = 0;
+static int16_t     s_tune_prev_r = 0;
+
 /* 目标直接下发（2026-10-31 晚 改回）：曾经在 0→目标 的起跑段加过 smoothstep
  * 软起动（`tr` 可调），但实测需求是“速度阶跃 500↔1000↔1500 能不能在 100~300ms
  * 内整定”，起跑那一下的抖动并不重要；而软起动只塑形起跑、对中途改目标不仅没用
@@ -208,6 +216,8 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 			M3PWM_SetDutyCycle(0);
 			SpeedPID_Reset(&g_speed_pid_l);
 			SpeedPID_Reset(&g_speed_pid_r);
+			s_tune_prev_l = 0;          /* 切进调参模式：前馈基准清零 */
+			s_tune_prev_r = 0;
 			Led_Status_SetState(LED_ST_TEST);
 			break;
 
@@ -339,6 +349,8 @@ static void Car_Control_TuneStop(void)
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
 	s_tune_arm_ticks = 0u;
+	s_tune_prev_l = 0;                    /* 停车后重新发车，起跑那一下也吃到前馈 */
+	s_tune_prev_r = 0;
 	Motor_SetSpeed(MOTOR_L, 0);
 	Motor_SetSpeed(MOTOR_R, 0);
 	SpeedPID_Reset(&g_speed_pid_l);
@@ -390,6 +402,8 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 
 	SpeedPID_Reset(&g_speed_pid_l);
 	SpeedPID_Reset(&g_speed_pid_r);
+	s_tune_prev_l   = 0;                  /* 新一组 ! 从干净的输出状态开始 */
+	s_tune_prev_r   = 0;
 	s_tune_side     = side;
 	s_tune_ms       = ms;
 	s_tune_left_ms  = (uint32_t)ms;
@@ -429,6 +443,25 @@ void Car_Control_TuneSetFan(uint16_t duty)
 		duty = 1000u;
 	}
 	s_tune_fan_duty = duty;
+}
+
+/**
+  * @brief  kff：设定目标阶跃前馈系数（占空比/(mm/s)，0 = 关掉前馈）
+  * @param  duty_per_mm_s: 0 ~ CAR_TUNE_FF_MAX
+  * @note   纯开环补偿，只影响“目标跳变那一下”，稳态精度仍由积分项决定；
+  *         掉电不保存。实测静态增益约 0.60（500→693、1000→945、1500→1300）。
+  */
+void Car_Control_TuneSetFF(float duty_per_mm_s)
+{
+	if(duty_per_mm_s < 0.0f)
+	{
+		duty_per_mm_s = 0.0f;
+	}
+	if(duty_per_mm_s > CAR_TUNE_FF_MAX)
+	{
+		duty_per_mm_s = CAR_TUNE_FF_MAX;
+	}
+	s_tune_ff = duty_per_mm_s;
 }
 
 /**
@@ -503,6 +536,7 @@ void Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap)
 	snap->running    = (s_tune_run != 0u) ? 1u : 0u;
 	snap->arming     = (s_tune_arm_ticks != 0u) ? 1u : 0u;
 	snap->fan_duty   = s_tune_fan_duty;
+	snap->ff_milli   = (uint16_t)(s_tune_ff * 1000.0f + 0.5f);
 	snap->side       = s_tune_side;
 	snap->run_ms     = s_tune_ms;
 	snap->target_l   = s_tune_tgt_l;
@@ -531,6 +565,8 @@ static void Car_Control_TuneUpdate(void)
 			M3PWM_SetDutyCycle(s_tune_fan_duty);
 			SpeedPID_Reset(&g_speed_pid_l);
 			SpeedPID_Reset(&g_speed_pid_r);
+			s_tune_prev_l = 0;        /* 解锁完、闭环即将开始：起跑前馈从这里算 */
+			s_tune_prev_r = 0;
 			Motor_Enable();
 			s_tune_run = 1u;
 			printf("[tune] fan armed, throttle %u/1000 (%uus)\r\n",
@@ -558,25 +594,39 @@ static void Car_Control_TuneUpdate(void)
 		return;
 	}
 
-	/* 目标一拍到位：vl/vr 中途改目标就是真正的阶跃，PID 直接吃新的设定值 */
+	/* 目标一拍到位：vl/vr 中途改目标就是真正的阶跃，PID 直接吃新的设定值。
+	 * 前馈：目标相对“上一拍下发值”有跳变时，先按 K·Δ 把输出挪到位，再交给
+	 * PID 修残差——否则头几拍占空比给不够，积分会把输出堆过头（+20~26% 超调）。*/
 	if(s_tune_tgt_l > 0)
 	{
+		if(s_tune_prev_l != s_tune_tgt_l)
+		{
+			SpeedPID_Bump(&g_speed_pid_l, s_tune_ff * (float)(s_tune_tgt_l - s_tune_prev_l));
+			s_tune_prev_l = s_tune_tgt_l;
+		}
 		duty = SpeedPID_Calculate(&g_speed_pid_l, (float)s_tune_tgt_l, speed_left_mm_s);
 		Motor_SetSpeedClamped(MOTOR_L, duty);
 	}
 	else
 	{
+		s_tune_prev_l = 0;
 		Motor_SetSpeed(MOTOR_L, 0);
 		SpeedPID_Reset(&g_speed_pid_l);
 	}
 
 	if(s_tune_tgt_r > 0)
 	{
+		if(s_tune_prev_r != s_tune_tgt_r)
+		{
+			SpeedPID_Bump(&g_speed_pid_r, s_tune_ff * (float)(s_tune_tgt_r - s_tune_prev_r));
+			s_tune_prev_r = s_tune_tgt_r;
+		}
 		duty = SpeedPID_Calculate(&g_speed_pid_r, (float)s_tune_tgt_r, speed_right_mm_s);
 		Motor_SetSpeedClamped(MOTOR_R, duty);
 	}
 	else
 	{
+		s_tune_prev_r = 0;
 		Motor_SetSpeed(MOTOR_R, 0);
 		SpeedPID_Reset(&g_speed_pid_r);
 	}

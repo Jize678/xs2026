@@ -121,6 +121,21 @@ void SpeedPID_SetParam(SpeedPID_Controller_t *controller, float kp, float ki, fl
  */
 void SpeedPID_Reset(SpeedPID_Controller_t *controller);
 
+/**
+ * @brief 前馈跳变：把输出（=增量式的积分器状态 last_output）一次性挪一段
+ * @param controller : 速度环PID控制器指针
+ * @param duty_delta : 占空比增量（正=加速，负=减速），内部按 output_max/min 限幅
+ *
+ * 增量式 PID 的 `u(k) = u(k-1) + Δu(k)` 里，`last_output` 就是“积分器状态”。
+ * 目标速度阶跃时，如果只靠 `kp·Δe` 去搭输出，头几拍给不够，误差一直很大，
+ * `ki·e` 就会把输出堆过头——这就是实测 +20~26% 超调的来源。
+ *
+ * 前馈的做法是：目标变了多少，就按静态增益 K（占空比/(mm/s)，实测约 0.6）
+ * 直接把输出挪到位，误差几乎不产生，积分也就不会冲。纯开环补偿，不看实测
+ * 速度，所以**不影响稳态精度**（残差仍由 P/I 收尾）。
+ */
+void SpeedPID_Bump(SpeedPID_Controller_t *controller, float duty_delta);
+
 // ==================== 位置环PID函数 ====================
 /**
  * @brief 初始化位置环PID控制器

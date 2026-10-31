@@ -43,7 +43,10 @@ param(
 
     [string]$Tag = 'run',
     [string]$Cmd = '',
-    [string]$OutDir = ''
+    [string]$OutDir = '',
+
+    # 每次实验的指标追加到这个 txt（留空 = 不写文件）；建议传工程的 双电机直行测试记录.txt
+    [string]$LogPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -361,7 +364,7 @@ function Show-Metrics($m, $v) {
     Write-Host ('  t90={0} ms   peak_raw={1}   peak_block={2}   overshoot={3}%' -f (Fmt $m.t90), $m.peak_raw, $m.peak_block, (Fmt $m.overshoot_pct))
     Write-Host ('  steady mean={0}  err={1}%  worstdev={2}%  sd={3}   p10={4} p90={5}  outband={6}' -f `
             (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_dev_pct), (Fmt $m.steady_sd), $m.p10, $m.p90, $m.out_band)
-    Write-Host ('  u_mean={0}  u_max={1}' -f $m.u_mean, $m.u_max)
+    Write-Host ('  u_mean={0}  u_max={1}   post-t90 dev={2}%' -f $m.u_mean, $m.u_max, (Fmt $m.rise_dev_pct))
     $c = 'Red'; if ($v.all) { $c = 'Green' }
     Write-Host ('  [1]t90in100-300={0}  [2]post-t90dev<=10%={1}  [3]steadyerr<=2%={2}' -f $v.A_rise, $v.B_band, $v.C_steady) -ForegroundColor $c
 }
@@ -475,6 +478,26 @@ function Do-Group($sp) {
             $bySide[$sd] = [pscustomobject]@{ m = $m; v = $v }
         }
         $recs += [pscustomobject]@{ rep = $rep; bySide = $bySide }
+
+        # 逐趟落盘（时间戳齐全，便于事后对账）
+        if ($LogPath -ne '') {
+            $log = New-Object System.Collections.Generic.List[string]
+            $log.Add('------------------------------------------------------------')
+            $log.Add(('[{0}] tag={1} rep={2} target={3} run={4}ms fan={5} travel={6}mm' -f `
+                        (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $Target, $RunMs, $Fan, $travel))
+            foreach ($sd in $sides) {
+                $k = $sd.ToUpper()
+                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_kp", $p."${k}_ki", $p."${k}_kd"))
+            }
+            $log.Add(('  CSV: {0}' -f $file))
+            foreach ($sd in $sides) {
+                $e = $bySide[$sd]; $k = $sd.ToUpper()
+                $log.Add(('  {0}: t90={1}ms  post-t90 dev={2}%  steady={3}  err={4}%  sd={5}  u_mean={6}  => [1]{7} [2]{8} [3]{9}' -f `
+                            $k, (Fmt $e.m.t90), (Fmt $e.m.rise_dev_pct), (Fmt $e.m.steady_mean), (Fmt $e.m.steady_err_pct), `
+                            (Fmt $e.m.steady_sd), $e.m.u_mean, $e.v.A_rise, $e.v.B_band, $e.v.C_steady))
+            }
+            Add-Content -Path $LogPath -Value $log -Encoding UTF8
+        }
 
         # 组间 >= 2.6 s
         if ($rep -lt $Reps) { Write-Host '  [gap] waiting 2.6s' -ForegroundColor DarkGray; Start-Sleep -Milliseconds 2600 }

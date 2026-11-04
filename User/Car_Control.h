@@ -211,4 +211,21 @@ const Car_TuneGainSet_t *Car_Control_TuneGetSet(uint8_t side, uint8_t band, uint
 void        Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap);   /* 取当前状态（串口打印用） */
                                                     /* 延时风扇：等 CAR_FAN_DELAY_MS 后跑 CAR_FAN_TEST_MS 再停 */
 
+/* ---------------- 控制任务里的“延迟打印” ----------------
+ * 2ms 环里直接 printf 一行约 5ms（115200、fputc 不加锁自旋），会吞掉 2~3 个控制
+ * 周期，还会跟 20ms 的 CSV 帧插花。所以控制任务只登记一条事件，由串口任务在自己
+ * 的循环里取走打印，打印文本和原来逐字相同。
+ */
+typedef enum
+{
+    CAR_LOG_NONE = 0,       /* 信箱空 */
+    CAR_LOG_FAN_READY,      /* 负压建立完成：arg0 = 油门/1000，arg1 = 脉宽 us */
+    CAR_LOG_RUN_START,      /* 挂起的 ! 真正开始跑：arg0 = 油门/1000 */
+    CAR_LOG_FAN_ARMED       /* f 命令解锁完成：arg0 = 油门/1000，arg1 = 脉宽 us */
+} Car_LogCode_t;
+
+uint8_t     Car_Control_TakeLog(uint16_t *arg0, uint16_t *arg1);
+                                                                  /* 取一条待打印事件，返回
+                                                                   * CAR_LOG_NONE = 没有 */
+
 #endif /* __CAR_CONTROL_H */

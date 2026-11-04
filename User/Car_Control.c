@@ -10,6 +10,47 @@
 /* 闭环运行标志（PID_Controller.c 用它判断是否发车） */
 extern uint8_t star_car;
 
+/* 控制任务的延迟打印信箱（见 Car_Control.h 的 Car_LogCode_t）。
+ * 2 格环形：负压就绪那一拍会连着登记 fan ready 和 run start 两条，单格会丢后一条。
+ * 生产者只推进 head、消费者只推进 tail，互不覆盖；满了就丢新的一条。 */
+#define CAR_LOG_SLOTS  2u
+
+static volatile uint8_t  s_log_code[CAR_LOG_SLOTS] =
+	{(uint8_t)CAR_LOG_NONE, (uint8_t)CAR_LOG_NONE};
+static volatile uint16_t s_log_arg0[CAR_LOG_SLOTS] = {0u, 0u};
+static volatile uint16_t s_log_arg1[CAR_LOG_SLOTS] = {0u, 0u};
+static volatile uint8_t  s_log_head = 0u;      /* 生产者写 */
+static volatile uint8_t  s_log_tail = 0u;      /* 消费者读 */
+
+static void Car_Control_PostLog(uint8_t code, uint16_t arg0, uint16_t arg1)
+{
+	uint8_t next = (uint8_t)((s_log_head + 1u) % CAR_LOG_SLOTS);
+
+	if(next == s_log_tail)
+	{
+		return;                         /* 环形满了：丢掉这条，不覆盖未读的 */
+	}
+	s_log_arg0[s_log_head] = arg0;
+	s_log_arg1[s_log_head] = arg1;
+	s_log_code[s_log_head] = code;
+	s_log_head = next;
+}
+
+uint8_t Car_Control_TakeLog(uint16_t *arg0, uint16_t *arg1)
+{
+	uint8_t code;
+
+	if(s_log_head == s_log_tail)
+	{
+		return (uint8_t)CAR_LOG_NONE;   /* 信箱空 */
+	}
+	code  = s_log_code[s_log_tail];
+	*arg0 = s_log_arg0[s_log_tail];
+	*arg1 = s_log_arg1[s_log_tail];
+	s_log_tail = (uint8_t)((s_log_tail + 1u) % CAR_LOG_SLOTS);
+	return code;
+}
+
 static Car_Mode_t s_mode = CAR_MODE_IDLE;
 static uint16_t   s_test_ticks = 0;     /* 电机测试计时（单位：CAR_CTRL_TICK_MS） */
 static uint8_t    s_test_phase = 0;     /* 电机测试阶段：0=向前，1=停车 */
@@ -762,8 +803,9 @@ static void Car_Control_TuneUpdate(void)
 		s_tune_arm_ticks--;
 		if(s_tune_arm_ticks == 0u)
 		{
-			printf("[tune] fan ready, throttle %u/1000 (%uus)\r\n",
-			       (unsigned int)s_tune_fan_duty, (unsigned int)M3PWM_GetPulseUs());
+			/* 不能在这里 printf（一行 ≈5ms）：登记给串口任务打印 */
+			Car_Control_PostLog((uint8_t)CAR_LOG_FAN_READY, s_tune_fan_duty,
+			                    M3PWM_GetPulseUs());
 		}
 	}
 
@@ -780,7 +822,7 @@ static void Car_Control_TuneUpdate(void)
 			s_tune_prev_r = 0;
 			Motor_Enable();
 			s_tune_run = 1u;
-			printf("[tune] run start, fan %u/1000\r\n", (unsigned int)s_tune_fan_duty);
+			Car_Control_PostLog((uint8_t)CAR_LOG_RUN_START, s_tune_fan_duty, 0u);
 		}
 		return;
 	}
@@ -890,8 +932,8 @@ void Car_Control_Update(void)
 			{
 				/* 刚解锁完：推油门。电调自己会软启动，不需要我们做斜坡 */
 				M3PWM_SetDutyCycle(s_fan_duty);
-				printf("[fan] armed, throttle %u/1000 (%uus)\r\n",
-				       (unsigned int)s_fan_duty, (unsigned int)M3PWM_GetPulseUs());
+				Car_Control_PostLog((uint8_t)CAR_LOG_FAN_ARMED, s_fan_duty,
+				                    M3PWM_GetPulseUs());
 			}
 
 			s_fan_ticks--;

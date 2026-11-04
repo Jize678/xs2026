@@ -2,7 +2,6 @@
 #include "Board_Config.h"
 
 // 全局变量
-static uint32_t g_motor_frequency = MOTOR_FREQUENCY_17KHZ;  // 当前PWM频率
 static uint16_t g_motor1_duty = 0;                          // 电机1当前占空比
 static uint16_t g_motor2_duty = 0;                          // 电机2当前占空比
 /**
@@ -146,38 +145,3 @@ void Motor_StopAll(void)
     Motor_Stop(MOTOR_R);
     Motor_Stop(MOTOR_L);
 }
-
-/**
- * @brief  设置PWM频率
- * @note   频率范围1Hz-1MHz
- * @param  freq: 频率值 (Hz)
- * @retval 无
- */
-void Motor_SetFrequency(uint32_t freq)
-{
-    uint32_t psc, arr;
-    uint32_t timer_clock = 72000000;  // TIM1时钟频率72MHz (APB2)
-    
-    // 限制频率范围
-    if(freq < 1) freq = 1;
-    if(freq > 1000000) freq = 1000000;
-    
-    g_motor_frequency = freq;
-    
-    // 计算预分频值和自动重装值
-    // 频率 = 定时器时钟 / ((PSC + 1) × (ARR + 1))
-    // 为了获得最佳精度，先计算PSC，再计算ARR
-    psc = timer_clock / (freq * 1000) - 1;  // 目标ARR约为1000
-    if(psc > 65535) psc = 65535;
-    
-    arr = timer_clock / (freq * (psc + 1)) - 1;
-    if(arr > 65535) arr = 65535;
-    
-    // 更新定时器配置
-    TIM_PrescalerConfig(MOTOR_TIM, psc, TIM_PSCReloadMode_Immediate);
-    TIM_SetAutoreload(MOTOR_TIM, arr);
-    
-    // 重新设置电机速度以保持占空比
-    Motor_SetSpeed(MOTOR_R, g_motor1_duty);
-    Motor_SetSpeed(MOTOR_L, g_motor2_duty);
-} 

@@ -375,6 +375,9 @@ static void Serial_SendTuneParams(void)
 		{
 			Serial_LogGainSet(side, band, 0u);
 			Serial_LogGainSet(side, band, 1u);
+			/* 蓝牙链路一次只吞得下 ~180 字节，13 行 ≈570 字节会被截断/行内交错。
+			 * 每行之后让出 5ms 把模块缓冲发空（只在本任务里睡，安全）。 */
+			vTaskDelay(pdMS_TO_TICKS(5));
 		}
 	}
 
@@ -1245,6 +1248,29 @@ void App_SerialTask(void *argument)
 		while(Uart2_BytesAvailable() > 0)
 		{
 			Serial_HandleByte(Uart2_ReadByteBlocking());
+		}
+
+		/* 控制任务登记的延迟打印（2ms 环里直接 printf 一行要 ~5ms，见 Car_Control.h）。
+		 * 文本与改造前逐字相同，只是打印时机晚若干毫秒。 */
+		{
+			uint16_t log_a = 0u;
+			uint16_t log_b = 0u;
+			uint8_t  log_c = Car_Control_TakeLog(&log_a, &log_b);
+
+			if(log_c == (uint8_t)CAR_LOG_FAN_READY)
+			{
+				Serial_Log("[tune] fan ready, throttle %u/1000 (%uus)\r\n",
+				           (unsigned int)log_a, (unsigned int)log_b);
+			}
+			else if(log_c == (uint8_t)CAR_LOG_RUN_START)
+			{
+				Serial_Log("[tune] run start, fan %u/1000\r\n", (unsigned int)log_a);
+			}
+			else if(log_c == (uint8_t)CAR_LOG_FAN_ARMED)
+			{
+				Serial_Log("[fan] armed, throttle %u/1000 (%uus)\r\n",
+				           (unsigned int)log_a, (unsigned int)log_b);
+			}
 		}
 
 		/* 编码器监视（'bmq' 开关）：状态一变就打一行提示，然后按周期实时打印 */

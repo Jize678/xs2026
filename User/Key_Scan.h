@@ -49,10 +49,5 @@ Key_Event_t* Key_GetEvent(void);
  */
 uint8_t Key_HasEvent(void);
 
-/**
- * @brief 清除所有按键事件
- */
-void Key_ClearEvent(void);
-
 #endif /* __KEY_SCAN_H */
 

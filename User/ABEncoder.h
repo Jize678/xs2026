@@ -43,8 +43,6 @@
 
 void ABEncoder_Init(void);
 void ABEncoder_UpdateSpeed(void);
-int16_t ABEncoder_GetSpeed_left(void);
-int16_t ABEncoder_GetSpeed_right(void);
 extern int16_t speed_left,speed_right;
 extern float speed_left_mm_s, speed_right_mm_s;   /* 控制用：mm/s（已含 ±1 方向修正，已做 ENC_SPEED_WINDOW 拍滑窗平均） */
 extern float speed_left_mm_s_raw, speed_right_mm_s_raw;   /* 原始瞬时值（单拍差分），仅供诊断/对比 */

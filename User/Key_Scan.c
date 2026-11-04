@@ -159,11 +159,3 @@ uint8_t Key_HasEvent(void)
 {
     return (event_count > 0) ? 1 : 0;
 }
-
-// 清除所有按键事件
-void Key_ClearEvent(void)
-{
-    event_read_index = 0;
-    event_write_index = 0;
-    event_count = 0;
-}

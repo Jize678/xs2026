@@ -26,6 +26,5 @@ void Motor_Disable(void);                        // 禁用电机
 void Motor_SetSpeed(uint8_t motor_id, uint16_t duty);  // 设置电机速度 (0-10000，只有正转)
 void Motor_Stop(uint8_t motor_id);               // 停止指定电机
 void Motor_StopAll(void);                        // 停止所有电机
-void Motor_SetFrequency(uint32_t freq);          // 设置PWM频率
 
 #endif

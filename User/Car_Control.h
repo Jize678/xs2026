@@ -161,8 +161,8 @@ typedef struct
 	uint8_t running;        /* 1 = 正在闭环 */
 	uint8_t side;           /* 本次 ! 的侧别（Car_TuneSide_t） */
 	uint16_t run_ms;        /* 本次 ! 的定时（ms），停止后保留显示 */
-	uint16_t fan_duty;      /* tf 设定的负压占空比（0~1000），0 = 不带负压 */
-	uint8_t  arming;        /* 1 = 正在等电调解锁（1.5s），闭环还没开始 */
+	uint8_t arming;         /* 1 = 负压还在建立（或 ! 已挂起在等它），此时不应再发 ! */
+	uint16_t fan_duty;      /* 当前负压油门（0~1000），0 = 怠速/不吹 */
 	uint8_t  dir_down;      /* 1 = 当前这一段按“降速集”在跑 */
 	uint8_t  band;          /* 当前这一段用的档位（0~2） */
 	/* 12 套参数（2 轮 × 3 档 × 2 方向）不放进快照：那是 192 字节，串口任务
@@ -200,7 +200,9 @@ void        Car_Control_TuneSetParam(Car_Wheel_t wheel, uint8_t band, uint8_t do
                                                                   /* k/K + 项 + 档 + 侧 + 值：
                                                                    * 改 [轮][档][方向] 这一套里的某一项 */
 void        Car_Control_TuneSetFan(uint16_t duty);
-                                                                  /* tf：设定下次 ! 实验的负压占空比（0~1000，0=不带） */
+                                                                  /* tf：立刻把负压推到该油门（0~1000，
+                                                                   * 0=回怠速），与 ! 完全独立；从 0 打开时
+                                                                   * 会等 CAR_FAN_ARM_MS 建立完再允许起闭环 */
 void        Car_Control_TuneSetFFAll(uint8_t down, float duty_per_mm_s);
                                                                   /* kff / KFF（旧别名）：把该方向的 3 档 × 2 轮
                                                                   * 前馈一起设，掉电不保存 */

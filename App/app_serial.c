@@ -399,7 +399,7 @@ static void Serial_TuneRunStart(uint8_t side)
 	App_PostCmdArg(APP_CMD_TUNE_RUN, side, (int16_t)s_ex_ms);
 	if(sn.fan_duty > 0u)
 	{
-		Serial_Log("[tune] run %u ms %s + fan %u/1000 (arm 1.5s)\r\n",
+		Serial_Log("[tune] run %u ms %s, fan %u/1000\r\n",
 		           (unsigned int)s_ex_ms, name, (unsigned int)sn.fan_duty);
 	}
 	else
@@ -466,12 +466,12 @@ static void Serial_CommitNumber(void)
 		return;
 	}
 
-	/* 调参模式的负压（tf）：只记设定，等下一次 `!` 实验才解锁并吹 */
+	/* 调参模式的负压（tf）：立刻起风/停风，和 `!` 完全独立（2026-11-04 起） */
 	if(cmd == 'P')
 	{
 		if(s_num_digits == 0u)
 		{
-			Serial_Log("tune fan: send tf0~tf100 (e.g. tf40), 0 = no fan\r\n");
+			Serial_Log("tune fan: send tf0~tf100 (e.g. tf40), 0 = off\r\n");
 			return;
 		}
 		if(pct > 100u)
@@ -481,11 +481,11 @@ static void Serial_CommitNumber(void)
 		App_PostCmd(APP_CMD_TUNE_FAN, (uint8_t)pct);
 		if(pct == 0u)
 		{
-			Serial_Log("[tune] fan off: next ! runs without vacuum\r\n");
+			Serial_Log("[tune] fan off, idle throttle\r\n");
 		}
 		else
 		{
-			Serial_Log("[tune] fan %u%%: next ! arms 1.5s then runs with vacuum\r\n",
+			Serial_Log("[tune] fan %u%%: running now (kept across ! runs)\r\n",
 			           (unsigned int)pct);
 		}
 		return;
@@ -889,7 +889,7 @@ static void Serial_HandleByte(uint8_t ch)
 		{
 			App_PostCmd(APP_CMD_TUNE_ENTER, 0);
 			Serial_Log("[tune] enter: ! <ms> l|r|all | hlt | vl/vr<mm/s> | kpl0.6 | kq | 0 exit\r\n");
-			Serial_Log("[tune] tf0~100: vacuum for the next ! (0 = no fan)\r\n");
+			Serial_Log("[tune] tf0~100: vacuum now, kept across ! runs (0 = off)\r\n");
 			Serial_Log("[tune] kpl0.2 / kp1l0.2 / Kf2r-0.2: k/K term band side value\r\n");
 			Serial_Log("[tune] kff0.3 / KFF-0.2 still sets every band at once\r\n");
 			return;

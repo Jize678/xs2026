@@ -185,7 +185,7 @@ static void App_ProcessCommands(void)
 				break;
 
 			case APP_CMD_TUNE_FAN:
-				/* tf：arg = 百分比 0~100，只设设定值，下次 `!` 实验才吹 */
+				/* tf：arg = 百分比 0~100，立刻起风/停风，与 `!` 独立 */
 				Car_Control_TuneSetFan((uint16_t)cmd.arg * 10u);
 				break;
 

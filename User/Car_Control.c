@@ -26,7 +26,8 @@ static Car_Wheel_t s_spd_wheel  = CAR_WHEEL_LEFT;
 static int16_t     s_spd_target = 0;
 static uint16_t    s_spd_ticks  = 0;
 
-/* 速度环调参（tune）：左右目标独立，s_tune_run=1 表示已发 ! 开始闭环 */
+/* 速度环调参（tune）：左右目标独立。
+ * s_tune_run: 0 = 没在跑；1 = 正在闭环；2 = 已发 ! 但负压还在建立，挂着等 */
 static int16_t     s_tune_tgt_l = 0;
 static int16_t     s_tune_tgt_r = 0;
 static uint8_t     s_tune_run   = 0;
@@ -34,11 +35,14 @@ static uint16_t    s_tune_ms     = 0;    /* 本次 ! 的定时（ms），0 = 未
 static uint8_t     s_tune_side   = 2;    /* 本次 ! 的侧别（Car_TuneSide_t） */
 static uint32_t    s_tune_left_ms  = 0;  /* 本次 ! 剩余时长（ms），2ms 控制拍里递减 */
 
-/* tf 负压加持：不是立刻吹，而是决定下一次 `!` 实验要不要先解锁负压、吹多大。
- * s_tune_fan_duty 是粘性设定（0 = 不带负压）。s_tune_arm_ticks > 0 表示正在
- * 等负压建立（电机停着、闭环计时还没开始），负压在这一段里就已经吹起来了。 */
-static uint16_t    s_tune_fan_duty = 0;  /* tf 设定 0~1000 */
-static uint16_t    s_tune_arm_ticks = 0; /* 负压建立倒计时（tick），>0 = 准备中 */
+/* 负压（tf）：2026-11-04 起改成**与 `!` 完全独立**的开关——
+ *   tf<n> 立刻把负压推到 n%（0 = 停），之后每趟 `!` 都不再动它；
+ *   这样连续做多组实验时电调不用反复启停（用户要求，减电机寿命损耗）。
+ * s_tune_fan_duty 是当前油门（0~1000，粘性）；s_tune_arm_ticks > 0 表示刚从 0
+ * 打开、正在建立吸力（CAR_FAN_ARM_MS），这段时间里发 `!` 会挂起等它建立完。
+ * 只有在 tf0 / 0 / s / 切出 tune / 看门狗报警时才把负压收回怠速。 */
+static uint16_t    s_tune_fan_duty = 0;  /* 当前负压油门 0~1000（0 = 怠速） */
+static uint16_t    s_tune_arm_ticks = 0; /* 负压建立倒计时（tick），>0 = 正在建立 */
 
 /* 目标阶跃前馈（kff，占空比/(mm/s)）：vl/vr 一改，就把速度环输出按 K·Δ目标
  * 直接挪过去，不让积分去"追"。s_tune_prev_l/r 记着上一拍真正下发过的目标，
@@ -269,12 +273,21 @@ void Car_Control_Init(void)
   */
 void Car_Control_ApplyMode(Car_Mode_t mode)
 {
+	Car_Mode_t prev = s_mode;
+
 	s_mode = mode;
 	star_car = 0;                       /* 先退出闭环，再按新模式下动作 */
 	s_tune_run   = 0;                   /* 切模式时退出调参闭环 */
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
-	s_tune_arm_ticks = 0;               /* 切模式时取消负压解锁倒计时，避免旧倒计时残留 */
+	/* 负压与 ! 已经解耦：**重进 tune** 不打断正在吹的负压（连续实验要求它一直转），
+	 * 其余任何模式切换（IDLE / TRACK / MOTOR_TEST / SPEED_TEST）都把负压收回怠速
+	 * 并清掉设定，避免离开调参模式后风机还在转。 */
+	if((mode != CAR_MODE_SPEED_TUNE) || (prev != CAR_MODE_SPEED_TUNE))
+	{
+		s_tune_arm_ticks = 0;
+		s_tune_fan_duty  = 0;
+	}
 	s_tune_band      = 0u;              /* 档位/方向随模式切换一起复位 */
 	s_test_ticks = 0;                   /* 切模式时把电机测试的计时清零 */
 	s_test_phase = 0;
@@ -302,10 +315,12 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 			break;
 
 		case CAR_MODE_SPEED_TUNE:
-			/* 速度环调参：只切模式并停干净，等串口发 ! 才闭环 */
+			/* 速度环调参：只切模式并停干净，等串口发 ! 才闭环。
+			 * 负压按 s_tune_fan_duty 恢复：重进 tune 时保持原样（连续实验不停机），
+			 * 从别的模式进来时前面已经把它清成 0 了 = 怠速。 */
 			Motor_StopAll();
 			Motor_Disable();
-			M3PWM_SetDutyCycle(0);
+			M3PWM_SetDutyCycle(s_tune_fan_duty);
 			SpeedPID_Reset(&g_speed_pid_l);
 			SpeedPID_Reset(&g_speed_pid_r);
 			s_tune_prev_l = 0;          /* 切进调参模式：前馈基准清零 */
@@ -434,13 +449,14 @@ void Car_Control_TuneEnter(void)
 
 /**
   * @brief  停车并清目标，但留在调参模式里（hlt 与定时到点共用）
+  * @note   2026-11-04 起**不再动负压**：负压由 tf 独立控制，连续实验时风机可以
+  *         一直转着，反复启停只会磨电调/风机。要停风机请发 tf0 或 0/s。
   */
 static void Car_Control_TuneStop(void)
 {
 	s_tune_run   = 0u;
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
-	s_tune_arm_ticks = 0u;
 	s_tune_prev_l = 0;                    /* 停车后重新发车，起跑那一下也吃到前馈 */
 	s_tune_prev_r = 0;
 	s_tune_dir_down = 0u;                 /* 下一段从“升速集”开始 */
@@ -449,17 +465,16 @@ static void Car_Control_TuneStop(void)
 	Motor_SetSpeed(MOTOR_R, 0);
 	SpeedPID_Reset(&g_speed_pid_l);
 	SpeedPID_Reset(&g_speed_pid_r);
-	/* 实验结束的同时终止负压（回最低油门 = 电调怠速，不是断信号） */
-	M3PWM_SetDutyCycle(0);
 }
 
 /**
   * @brief  `! <ms> <l|r|all>`：按当前 vl / vr 目标定时闭环，到点自动停车（留在模式内）
   * @param  side : CAR_TUNE_SIDE_L / R / ALL；只跑一侧时另一侧目标强制 0
   * @param  ms   : 运行时长（1 ~ CAR_TUNE_RUN_MS_MAX）
-  * @note   已经在跑（或正在等负压建立）的时候再发 ! 直接忽略，等这一组跑完
-  * @note   tf 设过负压时：**立刻**把负压推到设定值，电机停着空等 CAR_FAN_ARM_MS
-  *         让电调上转、裙边吸住，这段时间结束才进闭环计时；实验一结束负压同步回最低油门
+  * @note   已经有一趟在跑 / 在等负压的时候再发 ! 直接忽略
+  * @note   负压已经与 ! 解耦（见 Car_Control_TuneSetFan）：! 不再吹风、也不在结束时关风；
+  *         只有当负压**刚打开、还在建立**时才把这一趟挂起（s_tune_run = 2），
+  *         等吸力建立完由 Car_Control_TuneUpdate() 自动开跑，保证起跑就在满负压下。
   * @note   闭环用的目标就是 vl/vr 设定值，一拍到位（起跑也是阶跃）
   */
 void Car_Control_TuneRun(uint8_t side, uint16_t ms)
@@ -468,7 +483,7 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 	{
 		return;
 	}
-	if((s_tune_run != 0u) || (s_tune_arm_ticks != 0u))
+	if(s_tune_run != 0u)
 	{
 		return;
 	}
@@ -504,33 +519,30 @@ void Car_Control_TuneRun(uint8_t side, uint16_t ms)
 	s_tune_ms       = ms;
 	s_tune_left_ms  = (uint32_t)ms;
 
-	if(s_tune_fan_duty > 0u)
+	if(s_tune_arm_ticks > 0u)
 	{
-		/* 带负压：**立刻**把负压推到设定值（不等闭环），电机停着空等
-		 * CAR_FAN_ARM_MS 让电调上转、裙边吸住；这段时间结束时才进闭环计时。
-		 * 2026-10-31 改：原来是等解锁完才推负压，负压建立（电调加速 + 裙边
-		 * 密封）要 100~300ms，起闭环头几百毫秒其实是“半负压”，起跑段工况
-		 * 和稳态不一致；改成先吹后跑，起闭环时吸力已经到位。 */
+		/* 负压刚打开、还在建立吸力：先把这一趟挂起，等建好了再自动开跑。
+		 * 这样不管什么时候发 !，起跑那一刻都是满负压工况。 */
+		s_tune_run = 2u;
 		Motor_SetSpeed(MOTOR_L, 0);
 		Motor_SetSpeed(MOTOR_R, 0);
-		M3PWM_SetDutyCycle(s_tune_fan_duty);
-		s_tune_run       = 0u;
-		s_tune_arm_ticks = (uint16_t)(CAR_FAN_ARM_MS / CAR_CTRL_TICK_MS);
 	}
 	else
 	{
-		/* 不带负压：直接使能电机开始闭环计时 */
-		s_tune_run       = 1u;
-		s_tune_arm_ticks = 0u;
+		/* 负压已经建立（或本来就没吹）：直接使能电机开始闭环计时 */
+		s_tune_run = 1u;
 		Motor_Enable();
 	}
 }
 
 /**
-  * @brief  tf <0~100>：设定下一次 `!` 实验的负压占空比（粘性，直到下次 tf 覆盖）
-  * @param  duty: 0 ~ 1000（M3PWM 量程，0 = 实验时不带负压）
-  * @note   只改设定，不立刻吹；真正推油门发生在下一次 `!` 开始的那一刻（之后再等
-  *         CAR_FAN_ARM_MS 让负压建立，然后才起闭环）
+  * @brief  tf <0~100>：**立刻**把负压推到该油门（0 = 收回怠速）
+  * @param  duty: 0 ~ 1000（M3PWM 量程，0 = 怠速/不吹）
+  * @note   2026-11-04 起负压与 `!` 完全解耦：tf 就是风机的开/关+油门，设完之后
+  *         每一趟 `!` 都不再动它，连续做多组实验时电调不用反复启停。
+  *         从 0 打开时会置 CAR_FAN_ARM_MS 的建立倒计时；这段时间里发 `!` 会先
+  *         挂起，等吸力建立完再进闭环。已经是同一个值时不做任何事（避免重复
+  *         触发倒计时）。
   */
 void Car_Control_TuneSetFan(uint16_t duty)
 {
@@ -538,7 +550,21 @@ void Car_Control_TuneSetFan(uint16_t duty)
 	{
 		duty = 1000u;
 	}
+	if(duty == s_tune_fan_duty)
+	{
+		return;                        /* 值没变：不重新吹、不重新计时 */
+	}
 	s_tune_fan_duty = duty;
+	if(duty > 0u)
+	{
+		M3PWM_SetDutyCycle(duty);      /* 立刻起风（电调停在最低油门时也能直接推） */
+		s_tune_arm_ticks = (uint16_t)(CAR_FAN_ARM_MS / CAR_CTRL_TICK_MS);
+	}
+	else
+	{
+		M3PWM_SetDutyCycle(0);         /* 回怠速，不关电调 */
+		s_tune_arm_ticks = 0;
+	}
 }
 
 /**
@@ -678,8 +704,8 @@ void Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap)
 	{
 		return;
 	}
-	snap->running    = (s_tune_run != 0u) ? 1u : 0u;
-	snap->arming     = (s_tune_arm_ticks != 0u) ? 1u : 0u;
+	snap->running    = (s_tune_run == 1u) ? 1u : 0u;   /* 只有真在闭环才算 running（CSV 只在此时打） */
+	snap->arming     = ((s_tune_arm_ticks != 0u) || (s_tune_run == 2u)) ? 1u : 0u;
 	snap->fan_duty   = s_tune_fan_duty;
 	snap->dir_down   = s_tune_dir_down;
 	snap->band       = s_tune_band;
@@ -729,28 +755,37 @@ static void Car_Control_TuneUpdate(void)
 {
 	float duty;
 
-	/* tf 解锁阶段：电机必须停着，只等电调自检完；解锁完才推负压并进闭环计时 */
+	/* 负压建立倒计时：与 ! 无关，tf 一打开就开始走，走完打印一次。
+	 * 这一段时间电机不转（电机只由 s_tune_run 控制，见下）。 */
 	if(s_tune_arm_ticks > 0u)
 	{
-		Motor_SetSpeed(MOTOR_L, 0);
-		Motor_SetSpeed(MOTOR_R, 0);
 		s_tune_arm_ticks--;
 		if(s_tune_arm_ticks == 0u)
 		{
-			M3PWM_SetDutyCycle(s_tune_fan_duty);
+			printf("[tune] fan ready, throttle %u/1000 (%uus)\r\n",
+			       (unsigned int)s_tune_fan_duty, (unsigned int)M3PWM_GetPulseUs());
+		}
+	}
+
+	/* 挂起态（! 已发、但负压还在建立）：等吸力到位再自动开跑 */
+	if(s_tune_run == 2u)
+	{
+		Motor_SetSpeed(MOTOR_L, 0);
+		Motor_SetSpeed(MOTOR_R, 0);
+		if(s_tune_arm_ticks == 0u)
+		{
 			SpeedPID_Reset(&g_speed_pid_l);
 			SpeedPID_Reset(&g_speed_pid_r);
-			s_tune_prev_l = 0;        /* 解锁完、闭环即将开始：起跑前馈从这里算 */
+			s_tune_prev_l = 0;        /* 闭环即将开始：起跑前馈从这里算 */
 			s_tune_prev_r = 0;
 			Motor_Enable();
 			s_tune_run = 1u;
-			printf("[tune] fan armed, throttle %u/1000 (%uus)\r\n",
-			       (unsigned int)s_tune_fan_duty, (unsigned int)M3PWM_GetPulseUs());
+			printf("[tune] run start, fan %u/1000\r\n", (unsigned int)s_tune_fan_duty);
 		}
 		return;
 	}
 
-	if(s_tune_run != 0u)
+	if(s_tune_run == 1u)
 	{
 		if(s_tune_left_ms <= (uint32_t)CAR_CTRL_TICK_MS)
 		{

@@ -39,16 +39,27 @@ param(
     [double]$KiDn = -1,
     [double]$KdDn = -1,
 
-    # 负压：0 = 不吹；1~100 = 每组实验前发 tf<Fan>，固件先解锁 1.5s 再闭环
-    [ValidateRange(0, 100)][int]$Fan = 0,
+    # 负压：-1 = 不动（保持飞机当前油门）；0 = 关；1~100 = 起风到该百分比。
+    # 2026-11-04 起固件里的 tf 与 ! 解耦（tf 当场生效、之后一直保持），所以脚本
+    # 默认不再碰风机，免得把上一组手动开的负压给关掉。
+    [ValidateRange(-1, 100)][int]$Fan = -1,
 
     # 目标阶跃前馈，千分比占空比/(mm/s)。
     #   -FF   = 兼容用法：升速段和降速段都设成这个值
     #   -FFUp / -FFDn = 分别给升速段 / 降速段（降速段允许负值，范围 -2000~2000）
     # 固件按“目标跳变方向”自动切换并锁存整套参数，所以每组只在开头设一次。
+    # 注意：降速方向的默认值是 0（不是 -FF）。实测降速前馈给正值只会加深下冲
+    # （1500→1000：ff_dn 0 → −8.3%、0.6 → −33.6%，见 速度环调参说明.md §12.1），
+    # 所以 -FFDn 没显式指定时发 KFF0.000，避免每趟都被 -FF 的升速值污染。
+    # 想“只改升速、降速保持不变”就显式传 -FFDn -9999。
     [ValidateRange(0, 2000)][int]$FF = 600,
     [int]$FFUp = -9999,
-    [int]$FFDn = -9999,
+    [int]$FFDn = 0,
+
+    # 每组开跑前额外下发的一条指令（走安全白名单），用来做“只改一个档位”这类细调：
+    #   -PreCmd "kf1l0.30"   = 只把“升速·档1·左轮”的前馈改成 0.30，其余档位保持 kff 设的值
+    # 在 tune / tf / kff / 增益 之后、发车之前执行，所以会覆盖前面 set-ff 的结果。
+    [string]$PreCmd = '',
 
     # step 模式：先稳住 -From 这个速度，-HoldMs 之后把目标阶跃到 -Target，量整定时间
     [int]$From = 500,
@@ -553,15 +564,35 @@ function Set-FF($sp, [int]$Milli) {
     $sp.Write($txt + "`r`n")
 }
 
-# -FFUp / -FFDn 默认 -9999 = 没指定；只说了一个方向时，另一个方向跟 -FF
+function Format-Fan { if ($Fan -lt 0) { return 'keep' } return ([string]$Fan) }
+
+# 负压：-Fan -1 = 不动风机（保持当前油门），0 = 关，1~100 = 起风到该百分比。
+# 2026-11-04 起固件的 tf 是“当场生效、之后一直保持”，所以脚本默认不碰它。
+function Send-Fan($sp) {
+    if ($Fan -lt 0) {
+        Write-Host '  -- fan untouched (pass -Fan 0..100 to change)' -ForegroundColor DarkGray
+        return
+    }
+    $reply = Send-Cmd $sp ('tf' + $Fan) 400
+    $reply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
+}
+
+# -FFUp / -FFDn 用 -9999 表示“这一方向不动”：只发另一个方向。
+# 未指定 -FFDn 时默认 0（降速前馈给正值只会加深下冲），未指定 -FFUp 时跟随 -FF。
 function Get-FFUp { if ($FFUp -ne -9999) { return $FFUp } return $FF }
-function Get-FFDn { if ($FFDn -ne -9999) { return $FFDn } return $FF }
+function Get-FFDn { if ($FFDn -ne -9999) { return $FFDn } return $null }
 
 # 固件从 2026-10-31 晚起有“升速集 / 降速集”两套参数，按目标跳变方向自动切换
 # 并锁存整段，所以这里只需要在每组开头各设一次：小写 kff = 升速、大写 KFF = 降速。
 function Set-FFPair($sp) {
-    [void](Send-Cmd $sp ('kff' + (Format-GainSigned ([double](Get-FFUp) / 1000.0))) 250)
-    [void](Send-Cmd $sp ('KFF' + (Format-GainSigned ([double](Get-FFDn) / 1000.0))) 250)
+    $up = Get-FFUp
+    if ($null -ne $up) {
+        [void](Send-Cmd $sp ('kff' + (Format-GainSigned ([double]$up / 1000.0))) 250)
+    }
+    $dn = Get-FFDn
+    if ($null -ne $dn) {
+        [void](Send-Cmd $sp ('KFF' + (Format-GainSigned ([double]$dn / 1000.0))) 250)
+    }
 }
 
 function Do-Group($sp) {
@@ -573,15 +604,14 @@ function Do-Group($sp) {
     $sides = @($Side)
     if ($Side -eq 'all') { $sides = @('l', 'r') }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} travel={6}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, $Fan, $travel)
+    Write-Info ('== group tag={0} side={1} target={2} run={3}ms reps={4} fan={5} travel={6}mm ==' -f $Tag, $Side, $Target, $RunMs, $Reps, (Format-Fan), $travel)
 
     # 必须先进 tune：上电后默认 IDLE，此时 `!` 会被固件静默忽略（只回显、不闭环、不出 CSV）
     [void](Send-Cmd $sp 'tune' 400)
 
-    # 负压设定（粘性）：每组都显式下发，避免沿用上一组的意外值
-    $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    # 负压（2026-11-04 起与 ! 解耦）：-Fan -1 不动，其它值当场起风/停风
+    Send-Fan $sp
     Set-FFPair $sp
-    $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
 
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0 -or $KpDn -ge 0 -or $KiDn -ge 0 -or $KdDn -ge 0) {
         Write-Info '-- set gains (up / dn)'
@@ -852,12 +882,11 @@ function Do-Step($sp) {
     if ($travel -gt $MaxTravelMm) { throw ('step 行程 {0} mm 超过上限 {1} mm' -f $travel, $MaxTravelMm) }
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
     Write-Info ('== step tag={0} side={1} {2}->{3} mm/s run={4}ms hold={5}ms reps={6} fan={7} travel={8}mm ==' -f `
-            $Tag, $Side, $From, $Target, $RunMs, $HoldMs, $Reps, $Fan, $travel)
+            $Tag, $Side, $From, $Target, $RunMs, $HoldMs, $Reps, (Format-Fan), $travel)
 
     [void](Send-Cmd $sp 'tune' 400)
-    $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    Send-Fan $sp
     Set-FFPair $sp
-    $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0 -or $KpDn -ge 0 -or $KiDn -ge 0 -or $KdDn -ge 0) {
         Write-Info '-- set gains (up / dn)'
         foreach ($sd in $sides) {
@@ -1007,20 +1036,25 @@ function Do-Profile($sp) {
     $plan = Parse-StepPlan $Steps
     $totalHold = 0; foreach ($s in $plan) { $totalHold += $s.hold }
     $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
-    # 余量要盖住 1.5s 电调解锁 + 每段一次改目标的开销，否则最后一整段会被 `!` 提前掐断
+    # 余量要盖住可能存在的负压建立挂起 + 每段一次改目标的开销，否则最后一整段会被 `!` 提前掐断
     $runMs = $armMs + $totalHold + 2000
     $spec = ($plan | ForEach-Object { '{0}:{1}' -f $_.speed, $_.hold }) -join ','
     if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-    Write-Info ('== profile tag={0} side={1} fan={2} steps[{3}] hold={4}ms run={5}ms ==' -f $Tag, $Side, $Fan, $spec, $totalHold, $runMs)
+    Write-Info ('== profile tag={0} side={1} fan={2} steps[{3}] hold={4}ms run={5}ms ==' -f $Tag, $Side, (Format-Fan), $spec, $totalHold, $runMs)
 
     [void](Send-Cmd $sp 'tune' 400)
-    $fanReply = Send-Cmd $sp ('tf' + $Fan) 400
+    Send-Fan $sp
     Set-FFPair $sp
-    $fanReply | Where-Object { $_ -match '\[tune\] fan' } | ForEach-Object { Write-Host ("  << {0}" -f $_) -ForegroundColor DarkGray }
     if ($Kp -ge 0 -or $Ki -ge 0 -or $Kd -ge 0 -or $KpDn -ge 0 -or $KiDn -ge 0 -or $KdDn -ge 0) {
         Write-Info '-- set gains (up / dn)'
         Set-Gains $sp $Side $Kp $Ki $Kd
         Set-Gains $sp $Side $KpDn $KiDn $KdDn -Down
+    }
+    if ($PreCmd -ne '') {
+        foreach ($c in ($PreCmd -split ';')) {
+            $c = $c.Trim()
+            if ($c -ne '') { [void](Send-Cmd $sp $c 300) }
+        }
     }
     $p = Get-TuneParams $sp
     $k = $Side.ToUpper()
@@ -1295,7 +1329,8 @@ function Show-Help {
     Write-Host 'XS2026 tune runner' -ForegroundColor Cyan
     Write-Host '  .\tools\tune_auto.ps1 check'
     Write-Host '  .\tools\tune_auto.ps1 gains -Kp 1.23 -Ki 0.56 -Kd 0.00 -Side l'
-    Write-Host '  .\tools\tune_auto.ps1 group -Tag base -Target 500 -RunMs 1500 -Reps 3 -Side l [-Kp .. -Ki .. -Kd ..] [-Fan 0~100]'
+    Write-Host '  .\tools\tune_auto.ps1 group -Tag base -Target 500 -RunMs 1500 -Reps 3 -Side l [-Kp .. -Ki .. -Kd ..] [-Fan -1..100]'
+    Write-Host '      -Fan：默认 -1 = 不动风机；0 = 关；1~100 = 起风（固件里 tf 当场生效并一直保持）'
     Write-Host '  .\tools\tune_auto.ps1 group -Tag both -Target 1000 -RunMs 3000 -Reps 3 -Side all -AllowBoth -Fan 50'
     Write-Host '      -Side all：两侧同时闭环（直行），必须 -AllowBoth，且 Target×RunMs ≤ 3000 mm；每侧单独出指标'
     Write-Host '  .\tools\tune_auto.ps1 step -Tag s500_1000 -From 500 -To 1000 -HoldMs 1500 -RunMs 4000 -Reps 3 -Side l [-Kp .. -Fan 50]'

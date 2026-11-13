@@ -1,4 +1,5 @@
 #include "PID_Controller.h"
+#include "Car_Control.h"   /* 循迹也按档选增益：Car_Control_TrackApply() */
 #include "LSM6DSR_Config.h"
 #include <math.h>
  extern int16_t position_get;
@@ -52,7 +53,15 @@ float SpeedPID_Calculate(SpeedPID_Controller_t *controller, float target_speed, 
 	float p_term = controller->param.kp * (error - controller->last_error);
 	
 	// 积分项：Ki * e(k)
-	float i_term = controller->param.ki * error;
+	// 积分冻结（2026-11-04）：误差超出 ±PID_I_FREEZE_MM_S 时只按 PID_I_TAIL_SCALE
+	// 降权积分，落在窗口内才全速积分。阶跃段不再用 ki·e 连乘去搭输出，改由前馈
+	// 把占空比一次挪到位，调节时间和超调才有可能分开达标。
+	float i_gain = controller->param.ki;
+	if(fabsf(error) > PID_I_FREEZE_MM_S)
+	{
+		i_gain *= PID_I_TAIL_SCALE;
+	}
+	float i_term = i_gain * error;
 	
 	// 微分项：Kd * [e(k) - 2*e(k-1) + e(k-2)]
 	float d_term = controller->param.kd * (error - 2.0f * controller->last_error + controller->last_error2);
@@ -380,7 +389,11 @@ void PID_Control_Update(void)
 		if(target_left  < 0.0f) { target_left  = 0.0f; }
 		if(target_right < 0.0f) { target_right = 0.0f; }
 
-		/* 6. 内环：各用各的编码器反馈，各算各的占空比 */
+		/* 6. 分段增益：目标一变就按新目标选档（v4 定版，实现在 Car_Control.c） */
+		Car_Control_TrackApply(0u, target_left,  &g_speed_pid_l);
+		Car_Control_TrackApply(1u, target_right, &g_speed_pid_r);
+
+		/* 7. 内环：各用各的编码器反馈，各算各的占空比 */
 		duty_left  = SpeedPID_Calculate(&g_speed_pid_l, target_left,  speed_left_mm_s);
 		duty_right = SpeedPID_Calculate(&g_speed_pid_r, target_right, speed_right_mm_s);
 	}
@@ -388,13 +401,14 @@ void PID_Control_Update(void)
 	{
 		/* 没发车：清干净，下次发车从 0 重新爬坡 */
 		PID_ResetRamp();
+		Car_Control_TrackReset();
 		SpeedPID_Reset(&g_speed_pid_l);
 		SpeedPID_Reset(&g_speed_pid_r);
 		duty_left  = 0.0f;
 		duty_right = 0.0f;
 	}
 
-	/* 7. 下发到电机 */
+	/* 8. 下发到电机 */
 	Motor_SetSpeedClamped(MOTOR_L, duty_left);
 	Motor_SetSpeedClamped(MOTOR_R, duty_right);
 }

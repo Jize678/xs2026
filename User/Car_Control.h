@@ -23,6 +23,7 @@
 #define __CAR_CONTROL_H
 
 #include "stm32f10x.h"
+#include "PID_Controller.h"   /* 循迹按档写 kp/ki/kd 要 SpeedPID_Controller_t 与 SpeedPID_Bump */
 
 /* 串口指令字符 */
 #define CAR_CMD_STOP          '0'     /* 停止 */
@@ -86,6 +87,17 @@
 #define CAR_TUNE_FF_DN_DEFAULT  0.00f    /* 降速集默认前馈 */
 #define CAR_TUNE_FF_MAX         2.00f    /* 前馈绝对值上限（正负对称） */
 #define CAR_TUNE_DN_KD_DEFAULT  0.00f    /* 降速集默认 kd */
+
+/* 循迹模式下的前馈“起跳阈值”（2026-11-05 定版；2026-11-13 由 200 降到 100）：
+ * 调参模式是阶跃，目标一跳就补 ff·Δ；循迹不一样——起步斜坡每 2 ms 只加
+ * PID_RAMP_STEP(4.6) mm/s，若每拍都补，0→2110 会累积出 ff×2110 ≈ 1000
+ * 的占空比，等于把前馈变成"跟着斜坡一路加"，车会窜。所以只有**单拍目标
+ * 跳变 ≥ 这个阈值**才补一次：
+ *   斜坡 4.6/拍、位置环平缓微调 → 不触发（离门槛还差一个量级）；
+ *   灰度窜一格 ≈ 基准速度跳 920/3 ≈ 307 → 必触发；
+ *   半格抖动 ≈ 150 → 100 的门槛下也触发（200 的时候不触发），
+ *   这就是本次下调的目的：让中等幅度的目标跳变也吃到前馈。 */
+#define CAR_TUNE_TRACK_FF_STEP_MM_S  100.0f
 
 /* 分段（增益调度）：速度分 3 档 × 升/降 2 个方向 = 6 组 kp/ki/kd/ff，
  * 每档再按左右轮各存一套（共 12 套）。档位按**这一段的目标速度**选：
@@ -209,6 +221,13 @@ void        Car_Control_TuneSetFFAll(uint8_t down, float duty_per_mm_s);
 const Car_TuneGainSet_t *Car_Control_TuneGetSet(uint8_t side, uint8_t band, uint8_t down);
                                                                   /* 只读取一套参数（串口 kq 打印用） */
 void        Car_Control_TuneSnapshot(Car_TuneSnapshot_t *snap);   /* 取当前状态（串口打印用） */
+
+void        Car_Control_TrackApply(uint8_t side, float target, SpeedPID_Controller_t *pid);
+                                                                  /* 循迹选档（v4 定版）：
+                                                                   * 目标一变就按新目标选档写 kp/ki/kd；
+                                                                   * 只有单拍跳变 ≥ 200 mm/s
+                                                                   * 才补一次 ff·Δ，斜坡不会触发 */
+void        Car_Control_TrackReset(void);                         /* 停车：清掉选档状态与上次目标 */
                                                     /* 延时风扇：等 CAR_FAN_DELAY_MS 后跑 CAR_FAN_TEST_MS 再停 */
 
 /* ---------------- 控制任务里的“延迟打印” ----------------

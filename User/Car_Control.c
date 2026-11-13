@@ -105,8 +105,29 @@ static uint8_t     s_tune_band = 0u;      /* 当前段用的档位（按目标�
 static int16_t     s_tune_prev_l = 0;
 static int16_t     s_tune_prev_r = 0;
 
-/* 12 套参数的初值：升速集 kd 0.040 / ff 0.60，降速集 kd 0 / ff 0
- * （两个方向需要的补偿符号相反，理由见文件头注释）。上电调用一次。 */
+/* 12 套参数的初值。**v6.1 定版（2026-11-13）**：在 v6 基础上只改"档 0 降"一段
+ * （kp 0.600 / ki 0.004 / kd 0.150 / ff 0.500）。
+ *
+ * v6.1 的实测（右轮、无负压、1000→500 共 26 趟完整数据）：
+ *   ② 下冲 6.8~18.2%（中位 12.0%） 26/26 全过（档 0 放宽到 20%）
+ *   ③ 稳态 -0.89~+1.51%           26/26 全过
+ *   ① settle 18/26 = 69%（合格 100~300 ms；失败 8 趟是 400~2800 ms）
+ * ① 剩下的 31% 全部来自 500 mm/s 稳态的 ~3 Hz 极限环：块均摆 ±5~7%，3500 ms 段
+ * 35 个块只容 1 块出带，环一来自动挂 2 块以上、settle 直接跳段末。今天的实测证明
+ * 降 kp 压环不行——kp 0.60/0.50/0.45/0.35 的通过率是 8/12、2/6、0/5、0/8，kp 是
+ * "抗下坠"的主力，一降下冲就爆到 20%+。所以这一段是"低速段占空比只有 6%、贴静
+ * 摩擦门槛"的物理限制，不是增益没调好。
+ *
+ * 另外五段的来历：档 1 升降 / 档 2 升 / 档 0 降 之外的四段仍为出厂值。左轮没有单独
+ * 验证（始终只测右轮），按用户要求两侧写同一套——两轮增益不同会让直行跑偏，比
+ * "未验证"更危险。
+ * 与出厂相比共改五段：
+ *   档 1 升（600~1199 ↑）：kp 0.300 / ki 0.020 / kd 0.150 / ff 0.380   [v4]
+ *   档 1 降（600~1199 ↓）：kp 0.600 / ki 0.030 / kd 0.040 / ff 0.500   [v6]
+ *   档 2 升（>= 1200 ↑）  ：kp 0.200 / ki 0.040 / kd 0.040 / ff 0.500   [v6]
+ *   档 0 降（< 600 ↓）    ：kp 0.600 / ki 0.004 / kd 0.150 / ff 0.500   [v6.1]
+ * 保持出厂：档 0 升（0.200/0.080/0.040/0.600）、档 2 降（0.200/0.080/0/0）。
+ * 上电调用一次；串口 k/X 改的只进 RAM，掉电回到这里。 */
 static void Car_TuneSetsInit(void)
 {
 	uint8_t side;
@@ -126,6 +147,33 @@ static void Car_TuneSetsInit(void)
 			s_tune_set[side][band][1].kd = CAR_TUNE_DN_KD_DEFAULT;
 			s_tune_set[side][band][1].ff = CAR_TUNE_FF_DN_DEFAULT;
 		}
+
+		/* v4：档 1 升（500→1000 那格） */
+		s_tune_set[side][1u][0u].kp = 0.300f;
+		s_tune_set[side][1u][0u].ki = 0.020f;
+		s_tune_set[side][1u][0u].kd = 0.150f;
+		s_tune_set[side][1u][0u].ff = 0.380f;
+
+		/* v6：档 1 降、档 2 升。ff_dn 补的是"第一拍撤到位"那一百多个占空比：
+		 * 1300→1000 要从 1233 撤到 900（-333），kp_dn 0.6 只给 -180、积分 -36，
+		 * 差的靠 ff_dn 0.5 那一下补，否则速度是慢慢滑下来的（settle 400~800 ms）。 */
+		s_tune_set[side][1u][1u].kp = 0.600f;
+		s_tune_set[side][1u][1u].ki = 0.030f;
+		s_tune_set[side][1u][1u].kd = 0.040f;
+		s_tune_set[side][1u][1u].ff = 0.500f;
+
+		s_tune_set[side][2u][0u].kp = 0.200f;
+		s_tune_set[side][2u][0u].ki = 0.040f;
+		s_tune_set[side][2u][0u].kd = 0.040f;
+		s_tune_set[side][2u][0u].ff = 0.500f;
+
+		/* v6.1：档 0 降（1000→500）。kd 0.040→0.150、ki 0.010→0.004（两处一起改，
+		 * 没有单独拆开验证）。kd 给 3 Hz 极限环加相位超前、相当于阻尼，ki 压到 0.004
+		 * 让积分几乎不参与，避免它在低速段把环养起来。ff 沿用 v6 的 0.500。 */
+		s_tune_set[side][0u][1u].kp = 0.600f;
+		s_tune_set[side][0u][1u].ki = 0.004f;
+		s_tune_set[side][0u][1u].kd = 0.150f;
+		s_tune_set[side][0u][1u].ff = 0.500f;
 	}
 }
 
@@ -1041,4 +1089,71 @@ void Car_Control_PrintLedDiag(void)
 	       (int)((uint32_t)MOTOR_TIM->CCR2 * 1000 / (MOTOR_TIM->ARR + 1)),
 	       (int)((uint32_t)MOTOR_TIM->CCR4 * 1000 / (MOTOR_TIM->ARR + 1)),
 	       (int)((uint32_t)FAN_PWM_TIM->CCR4 * 1000 / (FAN_PWM_TIM->ARR + 1)));
+}
+
+/* ---------------- 循迹模式的分段选档（v4 定版，2026-11-05） ----------------
+ * 调参模式是“阶跃那拍选一次、整段沿用”；循迹不一样：目标由位置环和起步
+ * 斜坡连续改写，每 2 ms 都可能变。这里按“目标一变就重选”做：
+ *   1. 档位/方向按新目标选，只有换档或换向才把 kp/ki/kd 写进环里
+ *      （每拍都写也不会错，只是白费几个周期）；
+ *   2. ff 只在单拍跳变 ≥ CAR_TUNE_TRACK_FF_STEP_MM_S(200) 时补一次——起步斜坡
+ *      每拍只加 4.6 mm/s，不会触发；只有线偏差突变（16 路灰度窜一个格 ≈
+ *      基准速度跳 307 mm/s）这种“真跳变”才吃前馈。这是防止 Σff·Δ 把占空比
+ *      沿斜坡一路堆上去的关键。
+ * 两侧各存一份“上次目标”，停车时由 Car_Control_TrackReset() 清零。 */
+static float   s_track_prev_l = 0.0f;
+static float   s_track_prev_r = 0.0f;
+static uint8_t s_track_key_l  = 0xFFu;   /* (档 << 1) | 方向，0xFF = 还没选过 */
+static uint8_t s_track_key_r  = 0xFFu;
+
+void Car_Control_TrackApply(uint8_t side, float target, SpeedPID_Controller_t *pid)
+{
+	float   *prev;
+	uint8_t *key;
+	float   delta;
+	uint8_t band;
+	uint8_t down;
+	uint8_t now;
+	const Car_TuneGainSet_t *set;
+
+	if(side == 0u)
+	{
+		prev = &s_track_prev_l;
+		key  = &s_track_key_l;
+	}
+	else
+	{
+		prev = &s_track_prev_r;
+		key  = &s_track_key_r;
+	}
+
+	delta = target - *prev;
+	down  = (delta < 0.0f) ? 1u : 0u;
+	band  = Car_TuneBandOf((int16_t)target);
+	now   = (uint8_t)((band << 1) | down);
+	set   = Car_Control_TuneGetSet(side, band, down);
+
+	if(now != *key)                    /* 换档或换向：三增益跟着换 */
+	{
+		Car_TuneWritePid(pid, set);
+		*key = now;
+	}
+
+	if((delta >= CAR_TUNE_TRACK_FF_STEP_MM_S) || (delta <= -CAR_TUNE_TRACK_FF_STEP_MM_S))
+	{
+		if(set->ff != 0.0f)            /* 真跳变才补前馈，斜坡不补 */
+		{
+			SpeedPID_Bump(pid, set->ff * delta);
+		}
+	}
+
+	*prev = target;
+}
+
+void Car_Control_TrackReset(void)
+{
+	s_track_prev_l = 0.0f;
+	s_track_prev_r = 0.0f;
+	s_track_key_l  = 0xFFu;
+	s_track_key_r  = 0xFFu;
 }

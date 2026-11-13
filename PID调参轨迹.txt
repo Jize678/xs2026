@@ -174,3 +174,1068 @@
   gains L: kp=0.2 ki=0.08 kd=0.04
   CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261031_180230_ff600_l_r1_profile_l_r1.csv
   1000->1500: pre=805 (sd 928.5)  settle=600ms  peak_raw=2632 (+75.5%)  peak_block=+5.2%  steady=1499.4  err=-0.04%  sd=13.3  u_mean=1034  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:08:45] profile tag=b0base rep=1 side=l steps=300:1500,500:1500,1000:1500,1500:1500,2000:1500,1500:3000,1000:3000,500:2000 fan=35
+  gains L b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_200845_b0base_profile_l_r1.csv
+  500->1000: pre=565.2 (sd 92.9)  settle=800ms  peak_raw=1402 (+40.2%)  peak_block=+21.3%  steady=996.6  err=-0.34%  sd=10.9  u_mean=1090  u_step=636  => [1]False [2]False [3]True
+  1000->1500: pre=984 (sd 49.1)  settle=400ms  peak_raw=1795 (+19.7%)  peak_block=+5.9%  steady=1499.6  err=-0.03%  sd=10.9  u_mean=1385  u_step=744  => [1]False [2]False [3]True
+  2000->1500: pre=2013.5 (sd 81.9)  settle=400ms  peak_raw=1345 (+10.3%)  peak_block=+1.5%  steady=1502.1  err=0.14%  sd=14.6  u_mean=1432  u_step=-348  => [1]False [2]False [3]True
+  1500->1000: pre=1491.3 (sd 33.5)  settle=2200ms  peak_raw=815 (+18.5%)  peak_block=+9.2%  steady=1003.7  err=0.37%  sd=8.2  u_mean=995  u_step=-347  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:09:08] profile tag=b0base rep=2 side=l steps=300:1500,500:1500,1000:1500,1500:1500,2000:1500,1500:3000,1000:3000,500:2000 fan=35
+  gains L b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_200908_b0base_profile_l_r2.csv
+  300->500: pre=329.8 (sd 104)  settle=1500ms  peak_raw=675 (+35%)  peak_block=+8.4%  steady=501  err=0.2%  sd=0  u_mean=734  u_step=339  => [1]False [2]False [3]True
+  500->1000: pre=499.2 (sd 70.5)  settle=1500ms  peak_raw=1125 (+12.5%)  peak_block=+3.8%  steady=1012  err=1.2%  sd=0  u_mean=1011  u_step=615  => [1]False [2]False [3]True
+  1000->1500: pre=978.7 (sd 72.5)  settle=100ms  peak_raw=1723 (+14.9%)  peak_block=+1.2%  steady=1502.4  err=0.16%  sd=11.9  u_mean=1426  u_step=596  => [1]True [2]False [3]True
+  1500->2000: pre=1503.2 (sd 98.9)  settle=1500ms  peak_raw=2186 (+9.3%)  peak_block=+3%  steady=2009.8  err=0.49%  sd=0  u_mean=1784  u_step=623  => [1]False [2]True [3]True
+  2000->1500: pre=2014.3 (sd 84)  settle=400ms  peak_raw=1299 (+13.4%)  peak_block=+1.3%  steady=1502.2  err=0.14%  sd=13.4  u_mean=1399  u_step=-485  => [1]False [2]False [3]True
+  1500->1000: pre=1502 (sd 47.5)  settle=2600ms  peak_raw=831 (+16.9%)  peak_block=+4.7%  steady=1003.4  err=0.34%  sd=5.5  u_mean=980  u_step=-355  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:09:31] profile tag=b0base rep=3 side=l steps=300:1500,500:1500,1000:1500,1500:1500,2000:1500,1500:3000,1000:3000,500:2000 fan=35
+  gains L b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_200931_b0base_profile_l_r3.csv
+  500->1000: pre=503 (sd 76.7)  settle=1200ms  peak_raw=1266 (+26.6%)  peak_block=+5.8%  steady=1003.8  err=0.38%  sd=8.8  u_mean=990  u_step=709  => [1]False [2]False [3]True
+  1000->1500: pre=998.2 (sd 64.1)  settle=1400ms  peak_raw=1674 (+11.6%)  peak_block=+1.1%  steady=1495.4  err=-0.31%  sd=5.9  u_mean=1373  u_step=724  => [1]False [2]False [3]True
+  2000->1500: pre=1994.2 (sd 68)  settle=300ms  peak_raw=1262 (+15.9%)  peak_block=+2.2%  steady=1501.7  err=0.12%  sd=13.5  u_mean=1354  u_step=-509  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:22:51] profile tag=r1ki rep=1 side=l steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=35
+  gains L b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains L b1: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=-0.15
+  gains L b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=-0.15
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202251_r1ki_profile_l_r1.csv
+------------------------------------------------------------
+[2026-11-04 20:25:39] profile tag=r0r rep=1 side=r steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202539_r0r_profile_r_r1.csv
+  1000->1500: pre=996.7 (sd 53.1)  settle=1400ms  peak_raw=1747 (+16.5%)  peak_block=+5.5%  steady=1509.8  err=0.65%  sd=3.5  u_mean=1469  u_step=661  => [1]False [2]False [3]True
+  1500->2000: pre=1518.8 (sd 27.7)  settle=2500ms  peak_raw=2410 (+20.5%)  peak_block=+4.8%  steady=2012.6  err=0.63%  sd=0  u_mean=1962  u_step=614  => [1]False [2]False [3]True
+  2000->1500: pre=2015.5 (sd 48)  settle=2900ms  peak_raw=1072 (+28.5%)  peak_block=+4.9%  steady=1496  err=-0.27%  sd=24  u_mean=1477  u_step=-197  => [1]False [2]False [3]True
+  1500->1000: pre=1488.2 (sd 66.7)  settle=800ms  peak_raw=728 (+27.2%)  peak_block=+7%  steady=999.4  err=-0.06%  sd=12.1  u_mean=1050  u_step=-663  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:26:00] profile tag=r0r rep=2 side=r steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202600_r0r_profile_r_r2.csv
+  1000->1500: pre=945 (sd 95.3)  settle=1300ms  peak_raw=1833 (+22.2%)  peak_block=+3%  steady=1502.3  err=0.15%  sd=7.4  u_mean=1440  u_step=535  => [1]False [2]False [3]True
+  2000->1500: pre=1948.8 (sd 186.3)  settle=2800ms  peak_raw=1050 (+30%)  peak_block=+5.9%  steady=1513.9  err=0.92%  sd=10.4  u_mean=1414  u_step=-604  => [1]False [2]False [3]True
+  1500->1000: pre=1516.5 (sd 89.7)  settle=700ms  peak_raw=781 (+21.9%)  peak_block=+2.1%  steady=1000.3  err=0.03%  sd=10.2  u_mean=1012  u_step=-295  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:26:21] profile tag=r0r rep=3 side=r steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202621_r0r_profile_r_r3.csv
+  500->1000: pre=525.7 (sd 70.1)  settle=300ms  peak_raw=1224 (+22.4%)  peak_block=+4.9%  steady=999.7  err=-0.03%  sd=9.8  u_mean=1021  u_step=825  => [1]True [2]False [3]True
+  1000->1500: pre=1000.3 (sd 59.3)  settle=1300ms  peak_raw=2077 (+38.5%)  peak_block=+3.6%  steady=1509.2  err=0.62%  sd=13.3  u_mean=1403  u_step=563  => [1]False [2]False [3]True
+  1500->2000: pre=1532.3 (sd 98.3)  settle=300ms  peak_raw=2329 (+16.5%)  peak_block=+2.8%  steady=2004.4  err=0.22%  sd=17.5  u_mean=1742  u_step=594  => [1]True [2]False [3]True
+  2000->1500: pre=2007.2 (sd 52.1)  settle=2900ms  peak_raw=1090 (+27.3%)  peak_block=+4.1%  steady=1497.2  err=-0.18%  sd=27.2  u_mean=1383  u_step=-577  => [1]False [2]False [3]True
+  1500->1000: pre=1512.8 (sd 104.5)  settle=1000ms  peak_raw=840 (+16%)  peak_block=+2%  steady=999.8  err=-0.02%  sd=9.7  u_mean=974  u_step=-519  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:27:19] profile tag=r1ki rep=1 side=r steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202719_r1ki_profile_r_r1.csv
+  500->1000: pre=501.7 (sd 74.2)  settle=300ms  peak_raw=1158 (+15.8%)  peak_block=+4.4%  steady=1003.3  err=0.33%  sd=9.8  u_mean=990  u_step=609  => [1]True [2]False [3]True
+  1500->2000: pre=1503 (sd 137.3)  settle=300ms  peak_raw=2272 (+13.6%)  peak_block=+1.5%  steady=1999  err=-0.05%  sd=17.7  u_mean=1692  u_step=434  => [1]True [2]False [3]True
+  2000->1500: pre=1986 (sd 80.5)  settle=2800ms  peak_raw=1158 (+22.8%)  peak_block=+3.4%  steady=1493.4  err=-0.44%  sd=18  u_mean=1359  u_step=-270  => [1]False [2]False [3]True
+  1500->1000: pre=1501.2 (sd 90.9)  settle=600ms  peak_raw=844 (+15.6%)  peak_block=+6.2%  steady=999.3  err=-0.07%  sd=15  u_mean=971  u_step=-181  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:27:40] profile tag=r1ki rep=2 side=r steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202740_r1ki_profile_r_r2.csv
+  500->1000: pre=476 (sd 15.7)  settle=300ms  peak_raw=1273 (+27.3%)  peak_block=+6.2%  steady=1001.5  err=0.15%  sd=6.1  u_mean=968  u_step=524  => [1]True [2]False [3]True
+  1000->1500: pre=998 (sd 33.2)  settle=1400ms  peak_raw=1707 (+13.8%)  peak_block=+3.2%  steady=1504  err=0.27%  sd=25.2  u_mean=1348  u_step=543  => [1]False [2]False [3]True
+  1500->2000: pre=1513.3 (sd 56.5)  settle=500ms  peak_raw=2340 (+17%)  peak_block=+1.4%  steady=1993.3  err=-0.33%  sd=22  u_mean=1663  u_step=590  => [1]False [2]False [3]True
+  2000->1500: pre=1997.7 (sd 46.4)  settle=2800ms  peak_raw=1262 (+15.9%)  peak_block=+4.4%  steady=1509.8  err=0.66%  sd=20.6  u_mean=1352  u_step=-94  => [1]False [2]False [3]True
+  1500->1000: pre=1499.7 (sd 88.8)  settle=2600ms  peak_raw=853 (+14.7%)  peak_block=+3.3%  steady=1001.6  err=0.16%  sd=10.6  u_mean=970  u_step=-244  => [1]False [2]False [3]True
+  1000->500: pre=1003.5 (sd 56.4)  settle=1700ms  peak_raw=244 (+51.2%)  peak_block=+21%  steady=496.7  err=-0.67%  sd=0  u_mean=696  u_step=-568  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:28:01] profile tag=r1ki rep=3 side=r steps=500:2000,1000:1500,1500:1500,2000:2500,1500:3000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_202801_r1ki_profile_r_r3.csv
+  500->1000: pre=444 (sd 96.8)  settle=600ms  peak_raw=1257 (+25.7%)  peak_block=+14.5%  steady=999.9  err=-0.01%  sd=7.5  u_mean=974  u_step=402  => [1]False [2]False [3]True
+  1000->1500: pre=1005.8 (sd 28.3)  settle=1100ms  peak_raw=1710 (+14%)  peak_block=+7.2%  steady=1496  err=-0.26%  sd=10.7  u_mean=1360  u_step=558  => [1]False [2]False [3]True
+  2000->1500: pre=2023.5 (sd 106.9)  settle=3000ms  peak_raw=1284 (+14.4%)  peak_block=+3.6%  steady=1480  err=-1.33%  sd=0  u_mean=1392  u_step=-219  => [1]False [2]False [3]True
+  1500->1000: pre=1481.5 (sd 99.4)  settle=2900ms  peak_raw=881 (+11.9%)  peak_block=+2.9%  steady=1019.4  err=1.94%  sd=0.6  u_mean=954  u_step=-315  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:31:12] profile tag=r2ki rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.025 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.018 kd=0 ff=0
+  gains R b2: up kp= ki= kd= ff= | dn kp= ki= kd= ff=
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203112_r2ki_profile_r_r1.csv
+  500->1000: pre=477.7 (sd 19.2)  settle=700ms  peak_raw=1200 (+20%)  peak_block=+17.7%  steady=1000.8  err=0.08%  sd=7.7  u_mean=962  u_step=404  => [1]False [2]False [3]True
+  1000->1500: pre=1001.5 (sd 39.2)  settle=300ms  peak_raw=1740 (+16%)  peak_block=+8%  steady=1498  err=-0.14%  sd=7.8  u_mean=1275  u_step=619  => [1]True [2]False [3]True
+  1500->1000: pre=1492.2 (sd 33.7)  settle=3000ms  peak_raw=851 (+14.9%)  peak_block=+6.6%  steady=1012.2  err=1.23%  sd=0  u_mean=941  u_step=-174  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:31:27] profile tag=r2ki rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.025 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.018 kd=0 ff=0
+  gains R b2: up kp= ki= kd= ff= | dn kp= ki= kd= ff=
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203127_r2ki_profile_r_r2.csv
+  500->1000: pre=482 (sd 12.5)  settle=600ms  peak_raw=1239 (+23.9%)  peak_block=+19.1%  steady=1000.6  err=0.06%  sd=8.3  u_mean=955  u_step=508  => [1]False [2]False [3]True
+  1500->1000: pre=1504.5 (sd 46.7)  settle=2600ms  peak_raw=910 (+9%)  peak_block=+4.7%  steady=1003  err=0.3%  sd=8.3  u_mean=940  u_step=-129  => [1]False [2]True [3]True
+  1000->500: pre=1001.8 (sd 33)  settle=1200ms  peak_raw=222 (+55.6%)  peak_block=+32.4%  steady=505  err=1%  sd=0  u_mean=643  u_step=-655  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:31:42] profile tag=r2ki rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.025 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.018 kd=0 ff=0
+  gains R b2: up kp= ki= kd= ff= | dn kp= ki= kd= ff=
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203142_r2ki_profile_r_r3.csv
+  1000->1500: pre=982.3 (sd 55.1)  settle=300ms  peak_raw=1753 (+16.9%)  peak_block=+9.3%  steady=1500.5  err=0.04%  sd=9.3  u_mean=1275  u_step=632  => [1]True [2]False [3]True
+  1500->1000: pre=1500.2 (sd 52.2)  settle=2900ms  peak_raw=904 (+9.6%)  peak_block=+7.4%  steady=1009.6  err=0.96%  sd=4.1  u_mean=934  u_step=-201  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 20:32:27] profile tag=r3ff rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.025 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=-0.12
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203227_r3ff_profile_r_r1.csv
+  500->1000: pre=484 (sd 57.7)  settle=600ms  peak_raw=1176 (+17.6%)  peak_block=+12.5%  steady=998.8  err=-0.12%  sd=6.6  u_mean=949  u_step=366  => [1]False [2]False [3]True
+  1000->1500: pre=1002.3 (sd 23)  settle=300ms  peak_raw=1670 (+11.3%)  peak_block=+7.3%  steady=1496.7  err=-0.22%  sd=10.8  u_mean=1288  u_step=577  => [1]True [2]False [3]True
+  1500->1000: pre=1497.5 (sd 38.6)  settle=2800ms  peak_raw=846 (+15.4%)  peak_block=+8.9%  steady=996.9  err=-0.31%  sd=4.5  u_mean=933  u_step=-217  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:32:42] profile tag=r3ff rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.025 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=-0.12
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203242_r3ff_profile_r_r2.csv
+  500->1000: pre=487.3 (sd 29.5)  settle=1300ms  peak_raw=1189 (+18.9%)  peak_block=+10.7%  steady=1008.9  err=0.89%  sd=1.1  u_mean=961  u_step=355  => [1]False [2]False [3]True
+  1000->1500: pre=1002.8 (sd 29.4)  settle=300ms  peak_raw=1720 (+14.7%)  peak_block=+10.2%  steady=1500.2  err=0.02%  sd=10.3  u_mean=1294  u_step=537  => [1]True [2]False [3]True
+  1500->1000: pre=1492.3 (sd 47.5)  settle=400ms  peak_raw=859 (+14.1%)  peak_block=+8.3%  steady=1000.9  err=0.09%  sd=11.5  u_mean=931  u_step=-235  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:32:57] profile tag=r3ff rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.025 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=-0.12
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203257_r3ff_profile_r_r3.csv
+  500->1000: pre=510 (sd 9.2)  settle=1100ms  peak_raw=1195 (+19.5%)  peak_block=+11.3%  steady=1001.7  err=0.17%  sd=7.8  u_mean=965  u_step=365  => [1]False [2]False [3]True
+  1000->1500: pre=1000.2 (sd 34.4)  settle=300ms  peak_raw=1716 (+14.4%)  peak_block=+9.1%  steady=1494.2  err=-0.39%  sd=7.9  u_mean=1259  u_step=528  => [1]True [2]False [3]True
+  1500->1000: pre=1494.3 (sd 18.8)  settle=400ms  peak_raw=849 (+15.1%)  peak_block=+9.5%  steady=999.8  err=-0.02%  sd=10.2  u_mean=941  u_step=-109  => [1]False [2]False [3]True
+  1000->500: pre=1001.3 (sd 27.8)  settle=1200ms  peak_raw=178 (+64.4%)  peak_block=+32.6%  steady=497.2  err=-0.55%  sd=0  u_mean=645  u_step=-527  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:35:22] profile tag=r4ki rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=-0.25
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203522_r4ki_profile_r_r1.csv
+  500->1000: pre=496.2 (sd 28.9)  settle=800ms  peak_raw=1103 (+10.3%)  peak_block=+6.1%  steady=1002.2  err=0.22%  sd=9.3  u_mean=968  u_step=254  => [1]False [2]False [3]True
+  1000->1500: pre=980.8 (sd 30.9)  settle=300ms  peak_raw=1690 (+12.7%)  peak_block=+9.5%  steady=1495.5  err=-0.3%  sd=6.7  u_mean=1260  u_step=597  => [1]True [2]False [3]True
+  1500->1000: pre=1500.5 (sd 42.2)  settle=600ms  peak_raw=824 (+17.6%)  peak_block=+13.1%  steady=999.3  err=-0.07%  sd=8.9  u_mean=943  u_step=-13  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:35:37] profile tag=r4ki rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=-0.25
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203537_r4ki_profile_r_r2.csv
+  500->1000: pre=494.3 (sd 84.7)  settle=800ms  peak_raw=1143 (+14.3%)  peak_block=+8%  steady=998  err=-0.2%  sd=9.9  u_mean=971  u_step=301  => [1]False [2]False [3]True
+  1000->1500: pre=1003.7 (sd 22.8)  settle=900ms  peak_raw=1692 (+12.8%)  peak_block=+9.3%  steady=1496  err=-0.27%  sd=5.3  u_mean=1260  u_step=638  => [1]False [2]False [3]True
+  1500->1000: pre=1493.2 (sd 17)  settle=1000ms  peak_raw=829 (+17.1%)  peak_block=+12.6%  steady=1000.6  err=0.06%  sd=10.3  u_mean=941  u_step=-48  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:35:52] profile tag=r4ki rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=-0.25
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203552_r4ki_profile_r_r3.csv
+  500->1000: pre=469.3 (sd 45.3)  settle=600ms  peak_raw=1116 (+11.6%)  peak_block=+8.1%  steady=1000.8  err=0.08%  sd=11.7  u_mean=972  u_step=269  => [1]False [2]False [3]True
+  1000->1500: pre=1003.2 (sd 33.7)  settle=500ms  peak_raw=1734 (+15.6%)  peak_block=+12.2%  steady=1498.9  err=-0.07%  sd=6.4  u_mean=1257  u_step=459  => [1]False [2]False [3]True
+  1500->1000: pre=1498.7 (sd 14)  settle=400ms  peak_raw=851 (+14.9%)  peak_block=+10.1%  steady=1000.2  err=0.02%  sd=9.9  u_mean=940  u_step=-147  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:36:38] profile tag=r5ki rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.005 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.015 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203638_r5ki_profile_r_r1.csv
+  500->1000: pre=508 (sd 37.7)  settle=1400ms  peak_raw=1064 (+6.4%)  peak_block=+2.4%  steady=1007.9  err=0.79%  sd=1.1  u_mean=950  u_step=254  => [1]False [2]True [3]True
+  1000->1500: pre=999.2 (sd 29.7)  settle=700ms  peak_raw=1672 (+11.5%)  peak_block=+7.2%  steady=1499.3  err=-0.04%  sd=13  u_mean=1257  u_step=448  => [1]False [2]False [3]True
+  1500->1000: pre=1487.5 (sd 24.5)  settle=1100ms  peak_raw=870 (+13%)  peak_block=+9.7%  steady=1001  err=0.1%  sd=10.6  u_mean=942  u_step=-145  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:36:53] profile tag=r5ki rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.005 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.015 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203653_r5ki_profile_r_r2.csv
+  500->1000: pre=497.2 (sd 77)  settle=800ms  peak_raw=1075 (+7.5%)  peak_block=+2.8%  steady=999.4  err=-0.06%  sd=11.5  u_mean=949  u_step=275  => [1]False [2]True [3]True
+  1000->1500: pre=1016.3 (sd 26.3)  settle=1000ms  peak_raw=1619 (+7.9%)  peak_block=+6%  steady=1498.7  err=-0.09%  sd=13.9  u_mean=1263  u_step=472  => [1]False [2]True [3]True
+  1500->1000: pre=1504.3 (sd 22.2)  settle=400ms  peak_raw=835 (+16.5%)  peak_block=+11%  steady=998.6  err=-0.14%  sd=16.8  u_mean=938  u_step=-108  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:37:08] profile tag=r5ki rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.005 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.015 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203708_r5ki_profile_r_r3.csv
+  500->1000: pre=472.5 (sd 46.3)  settle=1400ms  peak_raw=1119 (+11.9%)  peak_block=+5.6%  steady=996.8  err=-0.32%  sd=3.2  u_mean=961  u_step=248  => [1]False [2]False [3]True
+  1000->1500: pre=991.3 (sd 23.5)  settle=900ms  peak_raw=1670 (+11.3%)  peak_block=+8.1%  steady=1506.1  err=0.41%  sd=8.6  u_mean=1261  u_step=447  => [1]False [2]False [3]True
+  1500->1000: pre=1509.5 (sd 26)  settle=500ms  peak_raw=871 (+12.9%)  peak_block=+9.6%  steady=1001.4  err=0.14%  sd=12.3  u_mean=941  u_step=-157  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:37:38] profile tag=r6best rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.005 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.018 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203738_r6best_profile_r_r1.csv
+  500->1000: pre=465 (sd 112.3)  settle=1100ms  peak_raw=1068 (+6.8%)  peak_block=+2.3%  steady=997.7  err=-0.23%  sd=9.5  u_mean=960  u_step=240  => [1]False [2]True [3]True
+  1000->1500: pre=991.2 (sd 39.3)  settle=600ms  peak_raw=1642 (+9.5%)  peak_block=+6.6%  steady=1495.7  err=-0.29%  sd=13.9  u_mean=1261  u_step=402  => [1]False [2]True [3]True
+  1500->1000: pre=1491.2 (sd 15.9)  settle=1400ms  peak_raw=875 (+12.5%)  peak_block=+7.3%  steady=1001.6  err=0.16%  sd=10.2  u_mean=941  u_step=-200  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:37:53] profile tag=r6best rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.005 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.018 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203753_r6best_profile_r_r2.csv
+  500->1000: pre=480.2 (sd 90.8)  settle=1200ms  peak_raw=1073 (+7.3%)  peak_block=+3.1%  steady=1006.1  err=0.61%  sd=8.8  u_mean=966  u_step=247  => [1]False [2]True [3]True
+  1000->1500: pre=1002.7 (sd 30.8)  settle=1000ms  peak_raw=1652 (+10.1%)  peak_block=+6.2%  steady=1497.5  err=-0.17%  sd=9.8  u_mean=1260  u_step=402  => [1]False [2]False [3]True
+  1500->1000: pre=1501.3 (sd 20.7)  settle=600ms  peak_raw=864 (+13.6%)  peak_block=+6.8%  steady=1000.4  err=0.04%  sd=10.5  u_mean=945  u_step=-144  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:38:08] profile tag=r6best rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.005 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.018 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_203808_r6best_profile_r_r3.csv
+  500->1000: pre=449.8 (sd 49.8)  settle=900ms  peak_raw=1116 (+11.6%)  peak_block=+6.4%  steady=1005.3  err=0.53%  sd=12  u_mean=980  u_step=237  => [1]False [2]False [3]True
+  1000->1500: pre=1012.2 (sd 31.6)  settle=1100ms  peak_raw=1650 (+10%)  peak_block=+5.8%  steady=1506.5  err=0.43%  sd=10.3  u_mean=1267  u_step=429  => [1]False [2]True [3]True
+  1500->1000: pre=1512.5 (sd 21.7)  settle=1600ms  peak_raw=859 (+14.1%)  peak_block=+9%  steady=1001.5  err=0.15%  sd=9.5  u_mean=948  u_step=-207  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:41:41] profile tag=r7fast rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.048 kd=0.04 ff=0 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_204141_r7fast_profile_r_r1.csv
+  500->1000: pre=493.5 (sd 68.4)  settle=600ms  peak_raw=1231 (+23.1%)  peak_block=+16.3%  steady=998.4  err=-0.16%  sd=9.4  u_mean=982  u_step=450  => [1]False [2]False [3]True
+  1000->1500: pre=1003.2 (sd 37)  settle=500ms  peak_raw=1652 (+10.1%)  peak_block=+7.5%  steady=1494.8  err=-0.34%  sd=8.9  u_mean=1277  u_step=334  => [1]False [2]False [3]True
+  1000->500: pre=995 (sd 35.5)  settle=1100ms  peak_raw=271 (+45.8%)  peak_block=+31%  steady=502.4  err=0.48%  sd=4.4  u_mean=655  u_step=-308  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:41:56] profile tag=r7fast rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.048 kd=0.04 ff=0 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_204156_r7fast_profile_r_r2.csv
+  500->1000: pre=509.7 (sd 68.7)  settle=500ms  peak_raw=1172 (+17.2%)  peak_block=+12.8%  steady=1001.7  err=0.17%  sd=6.4  u_mean=977  u_step=180  => [1]False [2]False [3]True
+  1000->1500: pre=997.3 (sd 33.4)  settle=300ms  peak_raw=1664 (+10.9%)  peak_block=+8.8%  steady=1499.4  err=-0.04%  sd=12.3  u_mean=1272  u_step=403  => [1]True [2]False [3]True
+  1500->1000: pre=1503.3 (sd 12.6)  settle=600ms  peak_raw=835 (+16.5%)  peak_block=+8.4%  steady=998.7  err=-0.13%  sd=10.3  u_mean=943  u_step=-237  => [1]False [2]False [3]True
+  1000->500: pre=1002 (sd 39.2)  settle=1000ms  peak_raw=280 (+44%)  peak_block=+34.8%  steady=498.8  err=-0.24%  sd=0  u_mean=648  u_step=-127  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:42:11] profile tag=r7fast rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.048 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.048 kd=0.04 ff=0 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.048 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.03 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_204211_r7fast_profile_r_r3.csv
+  500->1000: pre=578 (sd 68.2)  settle=700ms  peak_raw=1185 (+18.5%)  peak_block=+8.7%  steady=998.8  err=-0.12%  sd=9.5  u_mean=978  u_step=306  => [1]False [2]False [3]True
+  1000->1500: pre=1004 (sd 23.4)  settle=500ms  peak_raw=1674 (+11.6%)  peak_block=+9.3%  steady=1497.3  err=-0.18%  sd=9.9  u_mean=1271  u_step=372  => [1]False [2]False [3]True
+  1500->1000: pre=1500 (sd 30.5)  settle=700ms  peak_raw=842 (+15.8%)  peak_block=+8.9%  steady=999.5  err=-0.05%  sd=11.2  u_mean=946  u_step=-245  => [1]False [2]False [3]True
+  1000->500: pre=995.5 (sd 24.1)  settle=1100ms  peak_raw=269 (+46.2%)  peak_block=+24.7%  steady=492.2  err=-1.55%  sd=0  u_mean=640  u_step=-530  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:52:22] profile tag=r8kp rep=1 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.1 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.1 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205222_r8kp_profile_r_r1.csv
+  500->1000: pre=485.5 (sd 86.8)  settle=1500ms  peak_raw=1202 (+20.2%)  peak_block=+13.5%  steady=996.3  err=-0.37%  sd=0  u_mean=990  u_step=244  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:52:37] profile tag=r8kp rep=2 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.1 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.1 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205237_r8kp_profile_r_r2.csv
+  500->1000: pre=533.3 (sd 83.4)  settle=1500ms  peak_raw=1112 (+11.2%)  peak_block=+8%  steady=981.2  err=-1.88%  sd=0  u_mean=980  u_step=222  => [1]False [2]False [3]True
+  1000->1500: pre=997.7 (sd 40.1)  settle=1100ms  peak_raw=1637 (+9.1%)  peak_block=+7.1%  steady=1500.1  err=0%  sd=11.5  u_mean=1300  u_step=376  => [1]False [2]True [3]True
+  1500->1000: pre=1507 (sd 51.5)  settle=3000ms  peak_raw=870 (+13%)  peak_block=+7.8%  steady=999  err=-0.1%  sd=0  u_mean=951  u_step=-197  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:52:52] profile tag=r8kp rep=3 side=r steps=500:1500,1000:1500,1500:2000,1000:3000,500:1500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.1 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.1 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205252_r8kp_profile_r_r3.csv
+  500->1000: pre=552.7 (sd 119.3)  settle=700ms  peak_raw=1152 (+15.2%)  peak_block=+7.5%  steady=998.2  err=-0.18%  sd=11.1  u_mean=974  u_step=309  => [1]False [2]False [3]True
+  1500->1000: pre=1481 (sd 85.4)  settle=3000ms  peak_raw=862 (+13.8%)  peak_block=+4.7%  steady=1016  err=1.6%  sd=0  u_mean=963  u_step=-83  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:53:29] profile tag=r9kd rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.3 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0.1 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205329_r9kd_profile_r_r1.csv
+  500->1000: pre=508.5 (sd 38.4)  settle=1900ms  peak_raw=1105 (+10.5%)  peak_block=+2.2%  steady=1010.4  err=1.04%  sd=0.6  u_mean=975  u_step=327  => [1]False [2]False [3]True
+  1500->1000: pre=1455.5 (sd 72.5)  settle=2900ms  peak_raw=870 (+13%)  peak_block=+2.8%  steady=1014.8  err=1.48%  sd=1.5  u_mean=970  u_step=-117  => [1]False [2]False [3]True
+  1000->500: pre=1019.2 (sd 46.4)  settle=1600ms  peak_raw=284 (+43.2%)  peak_block=+17.6%  steady=502.5  err=0.5%  sd=0  u_mean=642  u_step=-472  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:53:46] profile tag=r9kd rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.3 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0.1 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205346_r9kd_profile_r_r2.csv
+  500->1000: pre=476.5 (sd 46.8)  settle=2000ms  peak_raw=1156 (+15.6%)  peak_block=+4%  steady=1005.8  err=0.57%  sd=0  u_mean=978  u_step=276  => [1]False [2]False [3]True
+  1500->1000: pre=1551.8 (sd 82.9)  settle=2900ms  peak_raw=756 (+24.4%)  peak_block=+9.1%  steady=989.1  err=-1.09%  sd=0.4  u_mean=969  u_step=-125  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:54:03] profile tag=r9kd rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.3 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0.1 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205403_r9kd_profile_r_r3.csv
+  1000->1500: pre=1037.3 (sd 27.6)  settle=1400ms  peak_raw=1578 (+5.2%)  peak_block=+1.4%  steady=1505.1  err=0.34%  sd=12.7  u_mean=1343  u_step=376  => [1]False [2]True [3]True
+  1500->1000: pre=1483.2 (sd 49.9)  settle=2900ms  peak_raw=890 (+11%)  peak_block=+4.5%  steady=994.2  err=-0.58%  sd=9.8  u_mean=941  u_step=-186  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:54:20] profile tag=r9kd rep=4 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.3 ki=0.01 kd=0.04 ff=0.3 | dn kp=0.2 ki=0.022 kd=0.1 ff=0
+  gains R b2: up kp=0.1 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205420_r9kd_profile_r_r4.csv
+  500->1000: pre=482.8 (sd 91.6)  settle=1700ms  peak_raw=1152 (+15.2%)  peak_block=+9.7%  steady=1002.8  err=0.28%  sd=8.8  u_mean=948  u_step=309  => [1]False [2]False [3]True
+  1000->1500: pre=997.8 (sd 33.9)  settle=1500ms  peak_raw=1648 (+9.9%)  peak_block=+6.2%  steady=1511.6  err=0.78%  sd=12.3  u_mean=1258  u_step=379  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 20:55:58] profile tag=r10kd rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.2 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205558_r10kd_profile_r_r1.csv
+  500->1000: pre=495.7 (sd 66.8)  settle=1500ms  peak_raw=1114 (+11.4%)  peak_block=+7.2%  steady=996.3  err=-0.37%  sd=12.3  u_mean=943  u_step=270  => [1]False [2]False [3]True
+  1000->1500: pre=965.8 (sd 47.5)  settle=1600ms  peak_raw=1619 (+7.9%)  peak_block=+4.6%  steady=1502.1  err=0.14%  sd=13.4  u_mean=1264  u_step=512  => [1]False [2]True [3]True
+  1500->1000: pre=1500.5 (sd 44.1)  settle=2800ms  peak_raw=873 (+12.7%)  peak_block=+7.2%  steady=990.7  err=-0.93%  sd=6.4  u_mean=932  u_step=-99  => [1]False [2]False [3]True
+  1000->500: pre=989.7 (sd 19.3)  settle=1600ms  peak_raw=312 (+37.6%)  peak_block=+24.6%  steady=505.6  err=1.12%  sd=0  u_mean=630  u_step=-336  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:56:15] profile tag=r10kd rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.2 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205615_r10kd_profile_r_r2.csv
+  1000->1500: pre=987.2 (sd 62.9)  settle=1800ms  peak_raw=1635 (+9%)  peak_block=+4.9%  steady=1508.9  err=0.59%  sd=7.1  u_mean=1240  u_step=409  => [1]False [2]True [3]True
+  1500->1000: pre=1505.3 (sd 43.7)  settle=1700ms  peak_raw=890 (+11%)  peak_block=+9.5%  steady=1000.6  err=0.06%  sd=10.3  u_mean=912  u_step=-232  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:56:32] profile tag=r10kd rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.2 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205632_r10kd_profile_r_r3.csv
+  500->1000: pre=503.7 (sd 73.5)  settle=1200ms  peak_raw=1086 (+8.6%)  peak_block=+4.2%  steady=998.6  err=-0.14%  sd=9.7  u_mean=929  u_step=244  => [1]False [2]True [3]True
+  1000->1500: pre=996 (sd 32.8)  settle=1900ms  peak_raw=1635 (+9%)  peak_block=+4.3%  steady=1483.5  err=-1.1%  sd=5  u_mean=1239  u_step=388  => [1]False [2]True [3]True
+  1500->1000: pre=1485.3 (sd 30.8)  settle=2300ms  peak_raw=855 (+14.5%)  peak_block=+10.5%  steady=1003.3  err=0.33%  sd=7.9  u_mean=914  u_step=-267  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 20:56:49] profile tag=r10kd rep=4 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.01 kd=0.2 ff=0.3 | dn kp=0.2 ki=0.022 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.008 kd=0.2 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_205649_r10kd_profile_r_r4.csv
+  500->1000: pre=503.8 (sd 96.5)  settle=2000ms  peak_raw=1187 (+18.7%)  peak_block=+11.3%  steady=995.5  err=-0.45%  sd=0  u_mean=942  u_step=361  => [1]False [2]False [3]True
+  1000->1500: pre=1005.2 (sd 35.4)  settle=500ms  peak_raw=1652 (+10.1%)  peak_block=+4.2%  steady=1499.4  err=-0.04%  sd=11.9  u_mean=1241  u_step=391  => [1]False [2]False [3]True
+  1500->1000: pre=1478.7 (sd 46.5)  settle=2300ms  peak_raw=853 (+14.7%)  peak_block=+9.7%  steady=1000.5  err=0.05%  sd=9.6  u_mean=912  u_step=-227  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:01:39] profile tag=c1cal rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210139_c1cal_profile_r_r1.csv
+------------------------------------------------------------
+[2026-11-04 21:01:56] profile tag=c1cal rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210156_c1cal_profile_r_r2.csv
+------------------------------------------------------------
+[2026-11-04 21:02:13] profile tag=c1cal rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210213_c1cal_profile_r_r3.csv
+------------------------------------------------------------
+[2026-11-04 21:02:30] profile tag=c1cal rep=4 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210230_c1cal_profile_r_r4.csv
+------------------------------------------------------------
+[2026-11-04 21:04:43] profile tag=c2cal rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210443_c2cal_profile_r_r1.csv
+  500->1000: pre=489.7 (sd 26.3)  settle=600ms  peak_raw=1103 (+10.3%)  peak_block=+5.9%  steady=999.4  err=-0.06%  sd=10  u_mean=908  u_step=334  => [1]False [2]False [3]True
+  1000->1500: pre=1001.3 (sd 32)  settle=300ms  peak_raw=1675 (+11.7%)  peak_block=+5.2%  steady=1497.7  err=-0.15%  sd=10.6  u_mean=1179  u_step=390  => [1]True [2]False [3]True
+  1500->1000: pre=1498.3 (sd 50.2)  settle=700ms  peak_raw=785 (+21.5%)  peak_block=+14.6%  steady=999.3  err=-0.07%  sd=10.4  u_mean=882  u_step=-553  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:05:00] profile tag=c2cal rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210500_c2cal_profile_r_r2.csv
+  500->1000: pre=512.5 (sd 17.2)  settle=500ms  peak_raw=1149 (+14.9%)  peak_block=+8.3%  steady=1000.3  err=0.03%  sd=6.2  u_mean=910  u_step=367  => [1]False [2]False [3]True
+  1000->1500: pre=1006.5 (sd 32.4)  settle=2000ms  peak_raw=1613 (+7.5%)  peak_block=+4.8%  steady=1522  err=1.47%  sd=0  u_mean=1191  u_step=393  => [1]False [2]True [3]True
+  1500->1000: pre=1497.2 (sd 31.9)  settle=2600ms  peak_raw=752 (+24.8%)  peak_block=+16.6%  steady=996.7  err=-0.33%  sd=10.7  u_mean=880  u_step=-621  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:05:17] profile tag=c2cal rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.85
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210517_c2cal_profile_r_r3.csv
+  500->1000: pre=508.8 (sd 88.3)  settle=400ms  peak_raw=1184 (+18.4%)  peak_block=+14.5%  steady=999.6  err=-0.04%  sd=10  u_mean=915  u_step=424  => [1]False [2]False [3]True
+  1000->1500: pre=998.7 (sd 28)  settle=300ms  peak_raw=1602 (+6.8%)  peak_block=+2.2%  steady=1498.2  err=-0.12%  sd=11.3  u_mean=1190  u_step=324  => [1]True [2]True [3]True
+  1500->1000: pre=1490.2 (sd 25.3)  settle=300ms  peak_raw=846 (+15.4%)  peak_block=+12.1%  steady=997.2  err=-0.28%  sd=19.8  u_mean=883  u_step=-561  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:05:51] profile tag=c3ki rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.45
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210551_c3ki_profile_r_r1.csv
+  500->1000: pre=513.5 (sd 55.1)  settle=1400ms  peak_raw=1068 (+6.8%)  peak_block=+3.4%  steady=998.6  err=-0.14%  sd=8.2  u_mean=905  u_step=334  => [1]False [2]True [3]True
+  1000->1500: pre=994.8 (sd 31.1)  settle=400ms  peak_raw=1595 (+6.3%)  peak_block=+2.4%  steady=1498.2  err=-0.12%  sd=15.1  u_mean=1192  u_step=328  => [1]False [2]True [3]True
+  1500->1000: pre=1494.3 (sd 40.6)  settle=1500ms  peak_raw=849 (+15.1%)  peak_block=+7.3%  steady=999.2  err=-0.08%  sd=9.5  u_mean=893  u_step=-382  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:06:08] profile tag=c3ki rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.45
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210608_c3ki_profile_r_r2.csv
+  500->1000: pre=514.7 (sd 26.2)  settle=1800ms  peak_raw=1119 (+11.9%)  peak_block=+5.8%  steady=1001.3  err=0.13%  sd=10  u_mean=910  u_step=342  => [1]False [2]False [3]True
+  1000->1500: pre=996.8 (sd 36.2)  settle=400ms  peak_raw=1602 (+6.8%)  peak_block=+2.7%  steady=1493  err=-0.46%  sd=8.5  u_mean=1197  u_step=310  => [1]False [2]True [3]True
+  1500->1000: pre=1486.5 (sd 20.5)  settle=1900ms  peak_raw=882 (+11.8%)  peak_block=+5.8%  steady=1000.1  err=0.01%  sd=7.2  u_mean=895  u_step=-386  => [1]False [2]False [3]True
+  1000->500: pre=993 (sd 38.2)  settle=1600ms  peak_raw=387 (+22.6%)  peak_block=+9.3%  steady=493.8  err=-1.25%  sd=0  u_mean=623  u_step=-193  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:06:25] profile tag=c3ki rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.45
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210625_c3ki_profile_r_r3.csv
+  500->1000: pre=508.8 (sd 38.8)  settle=600ms  peak_raw=1073 (+7.3%)  peak_block=+3.4%  steady=1001.2  err=0.12%  sd=7.1  u_mean=908  u_step=353  => [1]False [2]True [3]True
+  1000->1500: pre=997.3 (sd 34.8)  settle=400ms  peak_raw=1606 (+7.1%)  peak_block=+3.8%  steady=1497.1  err=-0.19%  sd=10.5  u_mean=1195  u_step=342  => [1]False [2]True [3]True
+  1500->1000: pre=1483.2 (sd 57.9)  settle=400ms  peak_raw=846 (+15.4%)  peak_block=+13%  steady=997.9  err=-0.21%  sd=9.6  u_mean=898  u_step=-361  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:07:01] profile tag=c4ki rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.35
+  gains R b2: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210701_c4ki_profile_r_r1.csv
+  500->1000: pre=504.7 (sd 43.8)  settle=500ms  peak_raw=1127 (+12.7%)  peak_block=+5.3%  steady=998.9  err=-0.11%  sd=7.6  u_mean=912  u_step=352  => [1]False [2]False [3]True
+  1000->1500: pre=992.8 (sd 32.4)  settle=500ms  peak_raw=1646 (+9.7%)  peak_block=+2.8%  steady=1502.4  err=0.16%  sd=7.7  u_mean=1198  u_step=336  => [1]False [2]True [3]True
+  1500->1000: pre=1488.2 (sd 50.9)  settle=400ms  peak_raw=868 (+13.2%)  peak_block=+6%  steady=1000.1  err=0.01%  sd=8.4  u_mean=891  u_step=-346  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:07:18] profile tag=c4ki rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.35
+  gains R b2: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210718_c4ki_profile_r_r2.csv
+  500->1000: pre=492 (sd 50.3)  settle=400ms  peak_raw=1174 (+17.4%)  peak_block=+8.3%  steady=998.7  err=-0.13%  sd=9.2  u_mean=912  u_step=360  => [1]False [2]False [3]True
+  1000->1500: pre=1000.3 (sd 37)  settle=800ms  peak_raw=1587 (+5.8%)  peak_block=+2.2%  steady=1496.2  err=-0.26%  sd=10.4  u_mean=1197  u_step=353  => [1]False [2]True [3]True
+  1500->1000: pre=1499.2 (sd 28.1)  settle=300ms  peak_raw=884 (+11.6%)  peak_block=+4.2%  steady=999.8  err=-0.02%  sd=10.6  u_mean=894  u_step=-313  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:07:35] profile tag=c4ki rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.35
+  gains R b2: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210735_c4ki_profile_r_r3.csv
+  500->1000: pre=468.7 (sd 77.6)  settle=1700ms  peak_raw=1125 (+12.5%)  peak_block=+5.2%  steady=1000.7  err=0.07%  sd=2.8  u_mean=910  u_step=337  => [1]False [2]False [3]True
+  1000->1500: pre=998.7 (sd 30.8)  settle=300ms  peak_raw=1582 (+5.5%)  peak_block=+2.1%  steady=1499.4  err=-0.04%  sd=9.7  u_mean=1202  u_step=343  => [1]True [2]True [3]True
+  1500->1000: pre=1493 (sd 14.7)  settle=400ms  peak_raw=897 (+10.3%)  peak_block=+4.7%  steady=1000.6  err=0.06%  sd=10.2  u_mean=900  u_step=-319  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:07:52] profile tag=c4ki rep=4 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0.35
+  gains R b2: up kp=0.2 ki=0.06 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210752_c4ki_profile_r_r4.csv
+  500->1000: pre=475.8 (sd 52.3)  settle=500ms  peak_raw=1158 (+15.8%)  peak_block=+12.3%  steady=1000.2  err=0.02%  sd=6.7  u_mean=917  u_step=312  => [1]False [2]False [3]True
+  1000->1500: pre=998.5 (sd 33.3)  settle=400ms  peak_raw=1630 (+8.7%)  peak_block=+2.6%  steady=1499.5  err=-0.03%  sd=10  u_mean=1201  u_step=342  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:08:41] profile tag=c5 rep=1 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0.3
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210841_c5_profile_r_r1.csv
+  500->1000: pre=513 (sd 12.4)  settle=600ms  peak_raw=1123 (+12.3%)  peak_block=+5.1%  steady=999.1  err=-0.09%  sd=9.7  u_mean=909  u_step=302  => [1]False [2]False [3]True
+  1000->1500: pre=1005.3 (sd 42)  settle=400ms  peak_raw=1617 (+7.8%)  peak_block=+3.6%  steady=1505.4  err=0.36%  sd=7.2  u_mean=1193  u_step=348  => [1]False [2]True [3]True
+  1500->1000: pre=1505.7 (sd 44.8)  settle=200ms  peak_raw=897 (+10.3%)  peak_block=+3.6%  steady=998.2  err=-0.18%  sd=12.1  u_mean=895  u_step=-325  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:08:58] profile tag=c5 rep=2 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0.3
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210858_c5_profile_r_r2.csv
+  500->1000: pre=534.8 (sd 56.5)  settle=2000ms  peak_raw=1112 (+11.2%)  peak_block=+6%  steady=1009  err=0.9%  sd=0  u_mean=908  u_step=324  => [1]False [2]False [3]True
+  1000->1500: pre=1005.7 (sd 27.3)  settle=400ms  peak_raw=1602 (+6.8%)  peak_block=+2.6%  steady=1502.9  err=0.19%  sd=9.1  u_mean=1196  u_step=321  => [1]False [2]True [3]True
+  1500->1000: pre=1499.3 (sd 53.4)  settle=200ms  peak_raw=890 (+11%)  peak_block=+2.2%  steady=999  err=-0.1%  sd=9.9  u_mean=902  u_step=-320  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:09:15] profile tag=c5 rep=3 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0.3
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210915_c5_profile_r_r3.csv
+  500->1000: pre=510.3 (sd 39.6)  settle=1100ms  peak_raw=1077 (+7.7%)  peak_block=+3.8%  steady=999.9  err=-0.01%  sd=7.8  u_mean=917  u_step=342  => [1]False [2]True [3]True
+  1000->1500: pre=1011 (sd 36.6)  settle=100ms  peak_raw=1558 (+3.9%)  peak_block=+1.9%  steady=1484.4  err=-1.04%  sd=49.4  u_mean=1199  u_step=330  => [1]True [2]True [3]True
+  1500->1000: pre=1499 (sd 12.4)  settle=400ms  peak_raw=881 (+11.9%)  peak_block=+5%  steady=1000.3  err=0.03%  sd=10  u_mean=896  u_step=-312  => [1]False [2]False [3]True
+  1000->500: pre=1002.5 (sd 42.4)  settle=1600ms  peak_raw=385 (+23%)  peak_block=+15.9%  steady=491.2  err=-1.75%  sd=0  u_mean=628  u_step=-152  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:09:32] profile tag=c5 rep=4 side=r steps=500:2500,1000:2000,1500:2000,1000:3000,500:2000 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0.3
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.45 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_210932_c5_profile_r_r4.csv
+  1000->1500: pre=1015.8 (sd 48.9)  settle=400ms  peak_raw=1573 (+4.9%)  peak_block=+2.9%  steady=1499.1  err=-0.06%  sd=9.6  u_mean=1198  u_step=350  => [1]False [2]True [3]True
+  1500->1000: pre=1513.3 (sd 31.1)  settle=300ms  peak_raw=864 (+13.6%)  peak_block=+5.8%  steady=998.6  err=-0.14%  sd=11.9  u_mean=898  u_step=-300  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:19:13] profile tag=s1base rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_211913_s1base_profile_r_r1.csv
+  500->1000: pre=490.5 (sd 43)  settle=200ms  peak_raw=1092 (+9.2%)  peak_block=+2.3%  steady=1000.5  err=0.05%  sd=11.2  u_mean=919  u_step=280  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:19:27] profile tag=s1base rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_211927_s1base_profile_r_r2.csv
+  500->1000: pre=522.8 (sd 53.1)  settle=400ms  peak_raw=1088 (+8.8%)  peak_block=+3.3%  steady=1000.4  err=0.04%  sd=12.5  u_mean=914  u_step=314  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:19:40] profile tag=s1base rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_211940_s1base_profile_r_r3.csv
+  500->1000: pre=460.8 (sd 29.5)  settle=2600ms  peak_raw=1117 (+11.7%)  peak_block=+6.9%  steady=1002.8  err=0.28%  sd=9.1  u_mean=920  u_step=283  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:20:48] profile tag=s2ff55 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0.55
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212048_s2ff55_profile_r_r1.csv
+  500->1000: pre=485.7 (sd 27.2)  settle=200ms  peak_raw=1084 (+8.4%)  peak_block=+3.8%  steady=1001.9  err=0.19%  sd=11.3  u_mean=927  u_step=287  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:21:02] profile tag=s2ff55 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0.55
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212102_s2ff55_profile_r_r2.csv
+  500->1000: pre=493.5 (sd 37.1)  settle=1800ms  peak_raw=1105 (+10.5%)  peak_block=+6.3%  steady=1000.1  err=0.01%  sd=7.2  u_mean=928  u_step=302  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:21:15] profile tag=s2ff55 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0.55
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212115_s2ff55_profile_r_r3.csv
+  500->1000: pre=507.2 (sd 78.2)  settle=2300ms  peak_raw=1116 (+11.6%)  peak_block=+5.8%  steady=999.3  err=-0.07%  sd=5  u_mean=930  u_step=320  => [1]False [2]False [3]True
+  1000->500: pre=1001.3 (sd 30.9)  settle=2100ms  peak_raw=345 (+31%)  peak_block=+23.3%  steady=501.2  err=0.24%  sd=0  u_mean=629  u_step=-417  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:21:52] profile tag=s3lowgain rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212152_s3lowgain_profile_r_r1.csv
+  500->1000: pre=473.3 (sd 69.6)  settle=2900ms  peak_raw=1110 (+11%)  peak_block=+6.9%  steady=991.6  err=-0.84%  sd=4.9  u_mean=934  u_step=290  => [1]False [2]False [3]True
+  1000->500: pre=990 (sd 44.9)  settle=2300ms  peak_raw=427 (+14.6%)  peak_block=+7.2%  steady=501.2  err=0.25%  sd=2.8  u_mean=644  u_step=-256  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:22:06] profile tag=s3lowgain rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212206_s3lowgain_profile_r_r2.csv
+  500->1000: pre=482.5 (sd 28.1)  settle=1100ms  peak_raw=1086 (+8.6%)  peak_block=+7.2%  steady=999.4  err=-0.06%  sd=10.1  u_mean=932  u_step=304  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:22:19] profile tag=s3lowgain rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.04 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212219_s3lowgain_profile_r_r3.csv
+  500->1000: pre=505.2 (sd 12.3)  settle=500ms  peak_raw=1088 (+8.8%)  peak_block=+4.2%  steady=1000.4  err=0.04%  sd=10  u_mean=931  u_step=314  => [1]False [2]True [3]True
+  1000->500: pre=996 (sd 31.9)  settle=2100ms  peak_raw=416 (+16.8%)  peak_block=+9.9%  steady=498.4  err=-0.33%  sd=6.6  u_mean=641  u_step=-247  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:23:13] profile tag=s4damp rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.25 ki=0.03 kd=0.1 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212313_s4damp_profile_r_r1.csv
+  500->1000: pre=507.8 (sd 21.5)  settle=600ms  peak_raw=1081 (+8.1%)  peak_block=+3.3%  steady=998.8  err=-0.12%  sd=9.6  u_mean=933  u_step=312  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:23:27] profile tag=s4damp rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.25 ki=0.03 kd=0.1 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212327_s4damp_profile_r_r2.csv
+  500->1000: pre=508.3 (sd 28)  settle=2900ms  peak_raw=1097 (+9.7%)  peak_block=+3.2%  steady=997.6  err=-0.25%  sd=4.1  u_mean=933  u_step=298  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:23:41] profile tag=s4damp rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.25 ki=0.03 kd=0.1 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212341_s4damp_profile_r_r3.csv
+  500->1000: pre=493 (sd 16.7)  settle=2700ms  peak_raw=1086 (+8.6%)  peak_block=+2.8%  steady=1011.7  err=1.17%  sd=2.3  u_mean=931  u_step=282  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:24:30] profile tag=s5low rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.08 ki=0.015 kd=0.02 ff=0.6 | dn kp=0.08 ki=0.015 kd=0.02 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212430_s5low_profile_r_r1.csv
+  500->1000: pre=500.7 (sd 11.5)  settle=2600ms  peak_raw=1079 (+7.9%)  peak_block=+2.5%  steady=998.8  err=-0.11%  sd=9.2  u_mean=934  u_step=290  => [1]False [2]True [3]True
+  1000->500: pre=1004.8 (sd 45.6)  settle=1800ms  peak_raw=379 (+24.2%)  peak_block=+17.6%  steady=503.5  err=0.7%  sd=0  u_mean=663  u_step=-190  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:29:37] profile tag=s6mix rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212937_s6mix_profile_r_r1.csv
+  500->1000: pre=501.3 (sd 42.4)  settle=2400ms  peak_raw=1086 (+8.6%)  peak_block=+3.6%  steady=998.4  err=-0.16%  sd=8.6  u_mean=931  u_step=290  => [1]False [2]True [3]True
+  1000->500: pre=993.8 (sd 27)  settle=2000ms  peak_raw=422 (+15.6%)  peak_block=+8%  steady=500.5  err=0.1%  sd=6.4  u_mean=642  u_step=-247  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:29:50] profile tag=s6mix rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_212950_s6mix_profile_r_r2.csv
+  500->1000: pre=508.7 (sd 34.2)  settle=2500ms  peak_raw=1077 (+7.7%)  peak_block=+2.6%  steady=993.1  err=-0.69%  sd=9.1  u_mean=928  u_step=297  => [1]False [2]True [3]True
+  1000->500: pre=989 (sd 56.7)  settle=2400ms  peak_raw=396 (+20.8%)  peak_block=+14.8%  steady=504.8  err=0.95%  sd=0  u_mean=657  u_step=-253  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 21:30:04] profile tag=s6mix rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.04 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213004_s6mix_profile_r_r3.csv
+  500->1000: pre=485 (sd 33.6)  settle=2700ms  peak_raw=1077 (+7.7%)  peak_block=+4.4%  steady=1001.9  err=0.19%  sd=2.6  u_mean=940  u_step=285  => [1]False [2]True [3]True
+  1000->500: pre=999 (sd 32.7)  settle=2000ms  peak_raw=446 (+10.8%)  peak_block=+6.7%  steady=506.1  err=1.23%  sd=3.1  u_mean=644  u_step=-235  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:30:44] profile tag=s7kd15 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213043_s7kd15_profile_r_r1.csv
+  500->1000: pre=500.5 (sd 20.5)  settle=300ms  peak_raw=1092 (+9.2%)  peak_block=+1.8%  steady=999  err=-0.1%  sd=10.8  u_mean=938  u_step=292  => [1]True [2]True [3]True
+  1000->500: pre=989 (sd 39.6)  settle=2000ms  peak_raw=416 (+16.8%)  peak_block=+10.4%  steady=500.7  err=0.14%  sd=5.2  u_mean=650  u_step=-254  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:30:58] profile tag=s7kd15 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213058_s7kd15_profile_r_r2.csv
+  500->1000: pre=492.2 (sd 29.6)  settle=2800ms  peak_raw=1090 (+9%)  peak_block=+2.3%  steady=1001.3  err=0.13%  sd=4.2  u_mean=936  u_step=289  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:31:12] profile tag=s7kd15 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.03 kd=0.04 ff=0.3
+  gains R b1: up kp=0.2 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213112_s7kd15_profile_r_r3.csv
+  500->1000: pre=501.7 (sd 10.3)  settle=400ms  peak_raw=1077 (+7.7%)  peak_block=+2.5%  steady=1002.2  err=0.22%  sd=10.7  u_mean=937  u_step=290  => [1]False [2]True [3]True
+  1000->500: pre=1000.3 (sd 48.5)  settle=2400ms  peak_raw=402 (+19.6%)  peak_block=+9.5%  steady=508  err=1.6%  sd=0  u_mean=648  u_step=-235  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:31:50] profile tag=s8lowi rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.1 ff=0.3
+  gains R b1: up kp=0.2 ki=0.01 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213149_s8lowi_profile_r_r1.csv
+------------------------------------------------------------
+[2026-11-04 21:32:04] profile tag=s8lowi rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.1 ff=0.3
+  gains R b1: up kp=0.2 ki=0.01 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213204_s8lowi_profile_r_r2.csv
+  500->1000: pre=507.2 (sd 10.8)  settle=2100ms  peak_raw=1079 (+7.9%)  peak_block=+1.5%  steady=1003.2  err=0.32%  sd=6  u_mean=936  u_step=282  => [1]False [2]True [3]True
+  1000->500: pre=1003 (sd 42.3)  settle=2300ms  peak_raw=433 (+13.4%)  peak_block=+9.6%  steady=508  err=1.6%  sd=0  u_mean=649  u_step=-212  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 21:32:17] profile tag=s8lowi rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.03 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.1 ff=0.3
+  gains R b1: up kp=0.2 ki=0.01 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_213217_s8lowi_profile_r_r3.csv
+  500->1000: pre=501.5 (sd 69.6)  settle=2600ms  peak_raw=1083 (+8.3%)  peak_block=+2.8%  steady=999.3  err=-0.07%  sd=11.8  u_mean=932  u_step=292  => [1]False [2]True [3]True
+  1000->500: pre=1001.3 (sd 29.3)  settle=2000ms  peak_raw=383 (+23.4%)  peak_block=+15.2%  steady=497.3  err=-0.54%  sd=3.8  u_mean=671  u_step=-213  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:18:37] profile tag=s18ki10 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_221837_s18ki10_profile_r_r1.csv
+  500->1000: pre=513.5 (sd 16.5)  settle=200ms  peak_raw=1075 (+7.5%)  peak_block=+2.4%  steady=995.6  err=-0.44%  sd=28.9  u_mean=932  u_step=334  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:18:50] profile tag=s18ki10 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_221850_s18ki10_profile_r_r2.csv
+  500->1000: pre=497 (sd 38.9)  settle=100ms  peak_raw=1083 (+8.3%)  peak_block=+2.7%  steady=991.3  err=-0.87%  sd=47.9  u_mean=941  u_step=317  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:19:04] profile tag=s18ki10 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_221904_s18ki10_profile_r_r3.csv
+  500->1000: pre=504.2 (sd 12.8)  settle=200ms  peak_raw=1061 (+6.1%)  peak_block=+2.2%  steady=995.6  err=-0.44%  sd=22.9  u_mean=940  u_step=339  => [1]True [2]True [3]True
+  1000->500: pre=999.8 (sd 34.4)  settle=500ms  peak_raw=451 (+9.8%)  peak_block=+5.4%  steady=501.7  err=0.33%  sd=17  u_mean=658  u_step=-232  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:20:14] profile tag=s19ff70 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.7
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222014_s19ff70_profile_r_r1.csv
+  500->1000: pre=434.8 (sd 20.4)  settle=200ms  peak_raw=1094 (+9.4%)  peak_block=+4%  steady=999.5  err=-0.05%  sd=21.6  u_mean=939  u_step=329  => [1]True [2]True [3]True
+  1000->500: pre=1006.7 (sd 39.2)  settle=2400ms  peak_raw=356 (+28.8%)  peak_block=+27.1%  steady=506.7  err=1.33%  sd=0  u_mean=634  u_step=-405  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:20:28] profile tag=s19ff70 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.7
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222028_s19ff70_profile_r_r2.csv
+  1000->500: pre=954 (sd 0)  settle=1900ms  peak_raw=0 (+100%)  peak_block=+100%  steady=507.6  err=1.52%  sd=12.8  u_mean=659  u_step=-548  => [1]False [2]False [3]True
+  500->1000: pre=508 (sd 12)  settle=200ms  peak_raw=1077 (+7.7%)  peak_block=+1.5%  steady=992.3  err=-0.77%  sd=22.6  u_mean=942  u_step=417  => [1]True [2]True [3]True
+  1000->500: pre=1014 (sd 10)  settle=1500ms  peak_raw=361 (+27.8%)  peak_block=+19.2%  steady=496  err=-0.79%  sd=18.5  u_mean=653  u_step=-441  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:20:40] profile tag=s19ff70 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.7
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222040_s19ff70_profile_r_r3.csv
+  500->1000: pre=504.7 (sd 26.8)  settle=200ms  peak_raw=1086 (+8.6%)  peak_block=+2.8%  steady=996.3  err=-0.37%  sd=21.9  u_mean=945  u_step=341  => [1]True [2]True [3]True
+  1000->500: pre=995.8 (sd 19.6)  settle=400ms  peak_raw=374 (+25.2%)  peak_block=+20.7%  steady=496.6  err=-0.69%  sd=20.7  u_mean=644  u_step=-429  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:21:18] profile tag=s20kpdn30 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.3 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222118_s20kpdn30_profile_r_r1.csv
+  500->1000: pre=520.2 (sd 39.5)  settle=200ms  peak_raw=1083 (+8.3%)  peak_block=+2.2%  steady=995.2  err=-0.48%  sd=28.3  u_mean=940  u_step=346  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:21:31] profile tag=s20kpdn30 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.3 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222131_s20kpdn30_profile_r_r2.csv
+  500->1000: pre=479 (sd 15.8)  settle=200ms  peak_raw=1084 (+8.4%)  peak_block=+3%  steady=994.7  err=-0.53%  sd=26.4  u_mean=940  u_step=337  => [1]True [2]True [3]True
+  1000->500: pre=986.7 (sd 53.9)  settle=2000ms  peak_raw=442 (+11.6%)  peak_block=+5.8%  steady=510.3  err=2.06%  sd=15.2  u_mean=680  u_step=-291  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:21:44] profile tag=s20kpdn30 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.3 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222144_s20kpdn30_profile_r_r3.csv
+  500->1000: pre=539.3 (sd 0.7)  settle=200ms  peak_raw=1068 (+6.8%)  peak_block=+3.7%  steady=987.5  err=-1.25%  sd=49.4  u_mean=943  u_step=289  => [1]True [2]True [3]True
+  1000->500: pre=1004.8 (sd 34.8)  settle=500ms  peak_raw=453 (+9.4%)  peak_block=+5%  steady=500.3  err=0.06%  sd=12.1  u_mean=663  u_step=-312  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:22:30] profile tag=s21ff60ki40 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.04 kd=0.04 ff=0.6
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222230_s21ff60ki40_profile_r_r1.csv
+  500->1000: pre=522.7 (sd 14.7)  settle=200ms  peak_raw=1073 (+7.3%)  peak_block=+2.8%  steady=992.9  err=-0.71%  sd=28.3  u_mean=943  u_step=342  => [1]True [2]True [3]True
+  1000->500: pre=1012.8 (sd 43.2)  settle=2400ms  peak_raw=119 (+76.2%)  peak_block=+65.2%  steady=474.8  err=-5.05%  sd=0  u_mean=667  u_step=-372  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:22:43] profile tag=s21ff60ki40 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.04 kd=0.04 ff=0.6
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222243_s21ff60ki40_profile_r_r2.csv
+  500->1000: pre=508 (sd 33.5)  settle=200ms  peak_raw=1094 (+9.4%)  peak_block=+3.3%  steady=993  err=-0.7%  sd=27.6  u_mean=946  u_step=348  => [1]True [2]True [3]True
+  1000->500: pre=1002.2 (sd 28.4)  settle=2100ms  peak_raw=304 (+39.2%)  peak_block=+35.4%  steady=508  err=1.6%  sd=14.9  u_mean=653  u_step=-364  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:22:57] profile tag=s21ff60ki40 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.04 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.04 kd=0.04 ff=0.6
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222257_s21ff60ki40_profile_r_r3.csv
+  500->1000: pre=510 (sd 38)  settle=200ms  peak_raw=1108 (+10.8%)  peak_block=+5%  steady=994.5  err=-0.55%  sd=28.8  u_mean=952  u_step=356  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:23:36] profile tag=s22ff60 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.6
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222336_s22ff60_profile_r_r1.csv
+  500->1000: pre=485.2 (sd 41.5)  settle=200ms  peak_raw=1088 (+8.8%)  peak_block=+2.2%  steady=997  err=-0.3%  sd=19.1  u_mean=947  u_step=333  => [1]True [2]True [3]True
+  1000->500: pre=994.5 (sd 53.8)  settle=1800ms  peak_raw=335 (+33%)  peak_block=+23.7%  steady=494.7  err=-1.06%  sd=16.1  u_mean=658  u_step=-362  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:23:49] profile tag=s22ff60 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.6
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222349_s22ff60_profile_r_r2.csv
+  1000->500: pre=n/a (sd n/a)  settle=1294500ms  peak_raw=0 (+100%)  peak_block=+100%  steady=490.2  err=-1.96%  sd=9.1  u_mean=684  u_step=n/a  => [1]False [2]False [3]True
+  500->1000: pre=482.7 (sd 5.9)  settle=200ms  peak_raw=1075 (+7.5%)  peak_block=+2.2%  steady=996  err=-0.4%  sd=20  u_mean=948  u_step=322  => [1]True [2]True [3]True
+  1000->500: pre=988.8 (sd 29.2)  settle=2200ms  peak_raw=414 (+17.2%)  peak_block=+12%  steady=499.2  err=-0.15%  sd=19.7  u_mean=654  u_step=-375  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:24:03] profile tag=s22ff60 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.6
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222403_s22ff60_profile_r_r3.csv
+  500->1000: pre=506.7 (sd 7.3)  settle=200ms  peak_raw=1084 (+8.4%)  peak_block=+2.3%  steady=996.3  err=-0.37%  sd=22.2  u_mean=952  u_step=319  => [1]True [2]True [3]True
+  1000->500: pre=1003.8 (sd 44.4)  settle=2300ms  peak_raw=394 (+21.2%)  peak_block=+15.6%  steady=492.1  err=-1.58%  sd=2.1  u_mean=644  u_step=-405  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:24:40] profile tag=s23ff40 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222440_s23ff40_profile_r_r1.csv
+  500->1000: pre=475.5 (sd 46.6)  settle=300ms  peak_raw=1068 (+6.8%)  peak_block=+3.4%  steady=999.3  err=-0.07%  sd=18.4  u_mean=950  u_step=347  => [1]True [2]True [3]True
+  1000->500: pre=984.2 (sd 46.6)  settle=1800ms  peak_raw=405 (+19%)  peak_block=+12.9%  steady=516.8  err=3.35%  sd=0  u_mean=675  u_step=-273  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:24:54] profile tag=s23ff40 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222454_s23ff40_profile_r_r2.csv
+  500->1000: pre=510 (sd 36.2)  settle=200ms  peak_raw=1081 (+8.1%)  peak_block=+2%  steady=996.4  err=-0.36%  sd=21.5  u_mean=951  u_step=333  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:25:07] profile tag=s23ff40 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.01 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222507_s23ff40_profile_r_r3.csv
+  500->1000: pre=485 (sd 34.4)  settle=200ms  peak_raw=1095 (+9.5%)  peak_block=+2.8%  steady=996.4  err=-0.36%  sd=20.8  u_mean=952  u_step=318  => [1]True [2]True [3]True
+  1000->500: pre=1003.2 (sd 25.8)  settle=400ms  peak_raw=425 (+15%)  peak_block=+6.5%  steady=499.4  err=-0.11%  sd=15.9  u_mean=659  u_step=-261  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:26:23] profile tag=s24ki05 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.005 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.005 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222623_s24ki05_profile_r_r1.csv
+  500->1000: pre=661 (sd 20.6)  settle=200ms  peak_raw=1114 (+11.4%)  peak_block=+6.5%  steady=1003.8  err=0.38%  sd=17.7  u_mean=956  u_step=349  => [1]True [2]False [3]True
+------------------------------------------------------------
+[2026-11-04 22:26:37] profile tag=s24ki05 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.005 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.005 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222637_s24ki05_profile_r_r2.csv
+  500->1000: pre=509.5 (sd 20.8)  settle=200ms  peak_raw=1081 (+8.1%)  peak_block=+2.4%  steady=997  err=-0.3%  sd=20.5  u_mean=949  u_step=332  => [1]True [2]True [3]True
+  1000->500: pre=983.8 (sd 47.8)  settle=2200ms  peak_raw=440 (+12%)  peak_block=+7.2%  steady=482.5  err=-3.5%  sd=8.7  u_mean=676  u_step=-298  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:26:50] profile tag=s24ki05 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.005 kd=0.04 ff=0.6 | dn kp=0.15 ki=0.005 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222650_s24ki05_profile_r_r3.csv
+  500->1000: pre=562.8 (sd 29.7)  settle=200ms  peak_raw=1075 (+7.5%)  peak_block=+2.5%  steady=996.4  err=-0.36%  sd=20  u_mean=956  u_step=340  => [1]True [2]True [3]True
+  1000->500: pre=1003 (sd 33.9)  settle=2300ms  peak_raw=425 (+15%)  peak_block=+9.8%  steady=508.8  err=1.75%  sd=0  u_mean=676  u_step=-282  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:27:35] profile tag=s25kpdn08 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.08 ki=0.01 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222734_s25kpdn08_profile_r_r1.csv
+  500->1000: pre=501.5 (sd 12.3)  settle=200ms  peak_raw=1081 (+8.1%)  peak_block=+3.7%  steady=996.8  err=-0.32%  sd=24.6  u_mean=954  u_step=322  => [1]True [2]True [3]True
+  1000->500: pre=996.7 (sd 28.1)  settle=2300ms  peak_raw=416 (+16.8%)  peak_block=+11.3%  steady=514.9  err=2.97%  sd=14.9  u_mean=667  u_step=-229  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:27:48] profile tag=s25kpdn08 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.08 ki=0.01 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222748_s25kpdn08_profile_r_r2.csv
+  500->1000: pre=515 (sd 20.7)  settle=200ms  peak_raw=1066 (+6.6%)  peak_block=+2.4%  steady=995.6  err=-0.44%  sd=26  u_mean=951  u_step=339  => [1]True [2]True [3]True
+  1000->500: pre=1014.2 (sd 41)  settle=2200ms  peak_raw=403 (+19.4%)  peak_block=+12.9%  steady=486.1  err=-2.78%  sd=15.6  u_mean=679  u_step=-220  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-04 22:28:02] profile tag=s25kpdn08 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.15 ki=0.01 kd=0.04 ff=0.6 | dn kp=0.08 ki=0.01 kd=0.04 ff=0.4
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261104_222801_s25kpdn08_profile_r_r3.csv
+  500->1000: pre=498 (sd 8.3)  settle=200ms  peak_raw=1084 (+8.4%)  peak_block=+3.5%  steady=995.3  err=-0.47%  sd=26.3  u_mean=956  u_step=341  => [1]True [2]True [3]True
+  1000->500: pre=995.2 (sd 31.5)  settle=2200ms  peak_raw=431 (+13.8%)  peak_block=+9.9%  steady=507  err=1.41%  sd=4.4  u_mean=677  u_step=-222  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:02:12] profile tag=s26kpdn60 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150212_s26kpdn60_profile_r_r1.csv
+  500->1000: pre=504.2 (sd 49.9)  settle=100ms  peak_raw=1094 (+9.4%)  peak_block=+3.6%  steady=991.5  err=-0.85%  sd=53.4  u_mean=918  u_step=337  => [1]True [2]True [3]True
+  1000->500: pre=1010 (sd 35.3)  settle=400ms  peak_raw=442 (+11.6%)  peak_block=+3.7%  steady=501.9  err=0.38%  sd=12.1  u_mean=625  u_step=-404  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:02:26] profile tag=s26kpdn60 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150226_s26kpdn60_profile_r_r2.csv
+  500->1000: pre=494.7 (sd 27.8)  settle=200ms  peak_raw=1070 (+7%)  peak_block=+2.6%  steady=998.3  err=-0.17%  sd=16.3  u_mean=900  u_step=321  => [1]True [2]True [3]True
+  1000->500: pre=1007.5 (sd 35.7)  settle=1200ms  peak_raw=433 (+13.4%)  peak_block=+9%  steady=503.6  err=0.71%  sd=15.8  u_mean=626  u_step=-488  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:02:39] profile tag=s26kpdn60 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.3
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150239_s26kpdn60_profile_r_r3.csv
+  500->1000: pre=530 (sd 55.8)  settle=300ms  peak_raw=1077 (+7.7%)  peak_block=+1.6%  steady=996.8  err=-0.32%  sd=15.7  u_mean=896  u_step=340  => [1]True [2]True [3]True
+  1000->500: pre=1011 (sd 31)  settle=1600ms  peak_raw=436 (+12.8%)  peak_block=+7.5%  steady=503.9  err=0.78%  sd=23  u_mean=622  u_step=-458  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:03:35] profile tag=s27ff50kp60 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150335_s27ff50kp60_profile_r_r1.csv
+  500->1000: pre=516 (sd 62.4)  settle=200ms  peak_raw=1084 (+8.4%)  peak_block=+3.2%  steady=996.5  err=-0.35%  sd=23.1  u_mean=900  u_step=352  => [1]True [2]True [3]True
+  1000->500: pre=1004.2 (sd 23.7)  settle=200ms  peak_raw=442 (+11.6%)  peak_block=+6%  steady=500.8  err=0.17%  sd=16.3  u_mean=612  u_step=-506  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:03:49] profile tag=s27ff50kp60 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150349_s27ff50kp60_profile_r_r2.csv
+  500->1000: pre=489.2 (sd 10.9)  settle=200ms  peak_raw=1072 (+7.2%)  peak_block=+2.5%  steady=997.6  err=-0.24%  sd=20.9  u_mean=898  u_step=431  => [1]True [2]True [3]True
+  1000->500: pre=1002.5 (sd 36.3)  settle=100ms  peak_raw=451 (+9.8%)  peak_block=+5.1%  steady=510  err=2%  sd=58.9  u_mean=607  u_step=-565  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:04:02] profile tag=s27ff50kp60 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150402_s27ff50kp60_profile_r_r3.csv
+  500->1000: pre=510 (sd 61.3)  settle=200ms  peak_raw=1072 (+7.2%)  peak_block=+1.9%  steady=998.5  err=-0.15%  sd=16.8  u_mean=901  u_step=333  => [1]True [2]True [3]True
+  1000->500: pre=1003.2 (sd 36)  settle=200ms  peak_raw=446 (+10.8%)  peak_block=+7.5%  steady=496.9  err=-0.62%  sd=13.5  u_mean=611  u_step=-463  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:04:26] profile tag=s28ff50kp60b rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150425_s28ff50kp60b_profile_r_r1.csv
+  500->1000: pre=425.5 (sd 93.6)  settle=100ms  peak_raw=1094 (+9.4%)  peak_block=+4.2%  steady=993  err=-0.7%  sd=42.2  u_mean=902  u_step=321  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:04:38] profile tag=s28ff50kp60b rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150438_s28ff50kp60b_profile_r_r2.csv
+  500->1000: pre=515.7 (sd 54.2)  settle=300ms  peak_raw=1070 (+7%)  peak_block=+1.7%  steady=996.8  err=-0.32%  sd=20.7  u_mean=888  u_step=342  => [1]True [2]True [3]True
+  1000->500: pre=1001.2 (sd 39.5)  settle=1600ms  peak_raw=418 (+16.4%)  peak_block=+10.8%  steady=505.2  err=1.05%  sd=2.8  u_mean=617  u_step=-517  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:04:51] profile tag=s28ff50kp60b rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150451_s28ff50kp60b_profile_r_r3.csv
+  1000->500: pre=n/a (sd n/a)  settle=430700ms  peak_raw=0 (+100%)  peak_block=+58.9%  steady=497.7  err=-0.47%  sd=19.2  u_mean=639  u_step=-192  => [1]False [2]False [3]True
+  500->1000: pre=488.3 (sd 36)  settle=2900ms  peak_raw=99462 (+9846.2%)  peak_block=+1638.6%  steady=971.1  err=-2.89%  sd=0  u_mean=891  u_step=337  => [1]False [2]False [3]False
+  1000->500: pre=996.8 (sd 38.4)  settle=1600ms  peak_raw=424 (+15.2%)  peak_block=+9.1%  steady=490.6  err=-1.87%  sd=16.5  u_mean=620  u_step=-509  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:05:04] profile tag=s28ff50kp60b rep=4 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150504_s28ff50kp60b_profile_r_r4.csv
+  500->1000: pre=525.3 (sd 69.9)  settle=200ms  peak_raw=1114 (+11.4%)  peak_block=+3.3%  steady=995.5  err=-0.45%  sd=30.1  u_mean=891  u_step=409  => [1]True [2]False [3]True
+  1000->500: pre=1012 (sd 53.7)  settle=2100ms  peak_raw=420 (+16%)  peak_block=+9.2%  steady=504.9  err=0.98%  sd=12.9  u_mean=616  u_step=-464  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:05:18] profile tag=s28ff50kp60b rep=5 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150518_s28ff50kp60b_profile_r_r5.csv
+  500->1000: pre=483.5 (sd 25.8)  settle=200ms  peak_raw=1086 (+8.6%)  peak_block=+3.8%  steady=998.7  err=-0.13%  sd=19.5  u_mean=893  u_step=332  => [1]True [2]True [3]True
+  1000->500: pre=1001 (sd 41.3)  settle=200ms  peak_raw=431 (+13.8%)  peak_block=+6.4%  steady=499.9  err=-0.03%  sd=15.6  u_mean=607  u_step=-580  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:05:30] profile tag=s28ff50kp60b rep=6 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150530_s28ff50kp60b_profile_r_r6.csv
+  1000->500: pre=1005 (sd 24)  settle=2700ms  peak_raw=1 (+99.8%)  peak_block=+57.6%  steady=509.4  err=1.88%  sd=22.9  u_mean=643  u_step=-407  => [1]False [2]False [3]True
+  500->1000: pre=511.8 (sd 43.3)  settle=200ms  peak_raw=1081 (+8.1%)  peak_block=+2.2%  steady=993.8  err=-0.62%  sd=34.4  u_mean=893  u_step=341  => [1]True [2]True [3]True
+  1000->500: pre=1003.7 (sd 33.6)  settle=400ms  peak_raw=446 (+10.8%)  peak_block=+3.2%  steady=499.7  err=-0.06%  sd=10.5  u_mean=600  u_step=-517  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:06:21] profile tag=s29ki20 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.02 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150621_s29ki20_profile_r_r1.csv
+  500->1000: pre=489.7 (sd 33.7)  settle=100ms  peak_raw=1086 (+8.6%)  peak_block=+3.2%  steady=995.3  err=-0.47%  sd=35.3  u_mean=898  u_step=298  => [1]True [2]True [3]True
+  1000->500: pre=1003.2 (sd 31.4)  settle=500ms  peak_raw=436 (+12.8%)  peak_block=+9.3%  steady=501.1  err=0.22%  sd=13.6  u_mean=599  u_step=-559  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:06:35] profile tag=s29ki20 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.02 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150635_s29ki20_profile_r_r2.csv
+  500->1000: pre=501.7 (sd 28.4)  settle=200ms  peak_raw=1101 (+10.1%)  peak_block=+3.5%  steady=996.1  err=-0.39%  sd=31.1  u_mean=898  u_step=361  => [1]True [2]False [3]True
+  1000->500: pre=1001.2 (sd 31.6)  settle=200ms  peak_raw=433 (+13.4%)  peak_block=+9%  steady=498.7  err=-0.27%  sd=14.4  u_mean=607  u_step=-465  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:06:49] profile tag=s29ki20 rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.02 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150649_s29ki20_profile_r_r3.csv
+  500->1000: pre=507.3 (sd 51.1)  settle=200ms  peak_raw=1070 (+7%)  peak_block=+3.6%  steady=997.4  err=-0.26%  sd=18.7  u_mean=896  u_step=315  => [1]True [2]True [3]True
+  1000->500: pre=1006.3 (sd 37.8)  settle=2300ms  peak_raw=387 (+22.6%)  peak_block=+9.3%  steady=506.7  err=1.33%  sd=5.7  u_mean=618  u_step=-593  => [1]False [2]False [3]True
+------------------------------------------------------------
+[2026-11-05 15:07:03] profile tag=s29ki20 rep=4 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.02 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150702_s29ki20_profile_r_r4.csv
+  500->1000: pre=494.5 (sd 79)  settle=400ms  peak_raw=1073 (+7.3%)  peak_block=+2.1%  steady=997.5  err=-0.25%  sd=16.5  u_mean=891  u_step=365  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:07:36] profile tag=s30s27rep6 rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150735_s30s27rep6_profile_r_r1.csv
+  500->1000: pre=487 (sd 42.8)  settle=100ms  peak_raw=1110 (+11%)  peak_block=+2.8%  steady=993.2  err=-0.68%  sd=39.2  u_mean=902  u_step=302  => [1]True [2]False [3]True
+  1000->500: pre=1007.3 (sd 28.8)  settle=200ms  peak_raw=435 (+13%)  peak_block=+7%  steady=497.8  err=-0.45%  sd=18.1  u_mean=612  u_step=-549  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:07:49] profile tag=s30s27rep6 rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150749_s30s27rep6_profile_r_r2.csv
+  500->1000: pre=511 (sd 51.4)  settle=200ms  peak_raw=1079 (+7.9%)  peak_block=+1.6%  steady=996.8  err=-0.32%  sd=12.9  u_mean=903  u_step=358  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:08:14] profile tag=s30s27rep6 rep=4 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150814_s30s27rep6_profile_r_r4.csv
+  500->1000: pre=479.7 (sd 75.9)  settle=900ms  peak_raw=1070 (+7%)  peak_block=+1.2%  steady=996.2  err=-0.38%  sd=12.1  u_mean=868  u_step=28  => [1]False [2]True [3]True
+  1000->500: pre=1008.8 (sd 36.8)  settle=1900ms  peak_raw=420 (+16%)  peak_block=+10.3%  steady=496.8  err=-0.63%  sd=13.1  u_mean=619  u_step=-495  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:08:27] profile tag=s30s27rep6 rep=5 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150827_s30s27rep6_profile_r_r5.csv
+  500->1000: pre=484.5 (sd 33.1)  settle=200ms  peak_raw=1090 (+9%)  peak_block=+4.4%  steady=996.6  err=-0.34%  sd=26.3  u_mean=899  u_step=328  => [1]True [2]True [3]True
+  1000->500: pre=999.7 (sd 55.8)  settle=1000ms  peak_raw=411 (+17.8%)  peak_block=+5.9%  steady=502.3  err=0.45%  sd=18.8  u_mean=624  u_step=-549  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:08:41] profile tag=s30s27rep6 rep=6 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_150841_s30s27rep6_profile_r_r6.csv
+  500->1000: pre=525.8 (sd 51.7)  settle=100ms  peak_raw=1077 (+7.7%)  peak_block=+1.8%  steady=984.4  err=-1.56%  sd=77.2  u_mean=894  u_step=366  => [1]True [2]True [3]True
+  1000->500: pre=1006.2 (sd 31.2)  settle=200ms  peak_raw=444 (+11.2%)  peak_block=+8.7%  steady=499.5  err=-0.1%  sd=18.3  u_mean=618  u_step=-456  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:15:35] profile tag=s31verify rep=1 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_151535_s31verify_profile_r_r1.csv
+  500->1000: pre=509.2 (sd 36.9)  settle=300ms  peak_raw=1064 (+6.4%)  peak_block=+2.1%  steady=996  err=-0.4%  sd=17.2  u_mean=905  u_step=348  => [1]True [2]True [3]True
+  1000->500: pre=1003 (sd 23.8)  settle=2000ms  peak_raw=440 (+12%)  peak_block=+7.2%  steady=506.6  err=1.32%  sd=11.2  u_mean=613  u_step=-479  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:15:48] profile tag=s31verify rep=2 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_151548_s31verify_profile_r_r2.csv
+  500->1000: pre=505.5 (sd 49.5)  settle=200ms  peak_raw=1086 (+8.6%)  peak_block=+2.7%  steady=999.1  err=-0.09%  sd=17.9  u_mean=912  u_step=351  => [1]True [2]True [3]True
+  1000->500: pre=1000.5 (sd 27.6)  settle=400ms  peak_raw=424 (+15.2%)  peak_block=+7.6%  steady=496.5  err=-0.7%  sd=13  u_mean=617  u_step=-533  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:16:02] profile tag=s31verify rep=3 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_151602_s31verify_profile_r_r3.csv
+  500->1000: pre=517.8 (sd 63.2)  settle=300ms  peak_raw=1064 (+6.4%)  peak_block=+1.4%  steady=996.2  err=-0.38%  sd=22.9  u_mean=909  u_step=410  => [1]True [2]True [3]True
+  1000->500: pre=1002.8 (sd 29)  settle=300ms  peak_raw=447 (+10.6%)  peak_block=+6.4%  steady=498  err=-0.4%  sd=12.3  u_mean=615  u_step=-575  => [1]True [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:16:15] profile tag=s31verify rep=4 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_151615_s31verify_profile_r_r4.csv
+  500->1000: pre=482 (sd 53.1)  settle=100ms  peak_raw=1061 (+6.1%)  peak_block=+2.6%  steady=993.3  err=-0.67%  sd=36.8  u_mean=914  u_step=285  => [1]True [2]True [3]True
+  1000->500: pre=999.3 (sd 38.5)  settle=2200ms  peak_raw=438 (+12.4%)  peak_block=+7%  steady=502.2  err=0.43%  sd=14.4  u_mean=617  u_step=-539  => [1]False [2]True [3]True
+------------------------------------------------------------
+[2026-11-05 15:16:28] profile tag=s31verify rep=5 side=r steps=500:2500,1000:3000,500:2500 fan=-1
+  gains R b0: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.6 ki=0.01 kd=0.04 ff=0.5
+  gains R b1: up kp=0.3 ki=0.02 kd=0.15 ff=0.38 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  gains R b2: up kp=0.2 ki=0.08 kd=0.04 ff=0.6 | dn kp=0.2 ki=0.08 kd=0 ff=0
+  CSV: D:\Desktop\agent workspace\XS2026\tune_data\20261105_151628_s31verify_profile_r_r5.csv
+  500->1000: pre=484 (sd 55.8)  settle=200ms  peak_raw=1079 (+7.9%)  peak_block=+2%  steady=997.1  err=-0.29%  sd=20.5  u_mean=910  u_step=307  => [1]True [2]True [3]True
+  1000->500: pre=987.3 (sd 39.6)  settle=2400ms  peak_raw=389 (+22.2%)  peak_block=+11.3%  steady=489.5  err=-2.1%  sd=0  u_mean=639  u_step=-584  => [1]False [2]False [3]True

@@ -744,17 +744,18 @@ function Do-Group($sp) {
 }
 
 function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
-    # 速度阶跃的整定指标（用户 2026-10-31 口径）：
-    #   ① 整定时间：阶跃后 100~300 ms 内进入目标 ±2%；
-    #   ② 超调：上升段原始采样峰值不超过目标的 110%；
-    #   ③ 稳态精度：整定之后块均与目标偏差 ≤ ±2%。
+    # 速度阶跃的整定指标（用户 2026-11-04 定稿，取代 2026-10-31 口径）：
+    #   ① 整定时间：阶跃后 100~300 ms 内进入目标 ±6%（2026-11-04 由 ±2% 放宽；
+    #      原因：1000 mm/s 稳态块均本底就有 ±1.5~2.5% 的机械纹波，±2% 带比噪声还窄）；
+    #   ② 超调：上升段原始采样峰值不超过目标的 110%（降速取下冲，档 0 放宽到 120%）；
+    #   ③ 稳态精度：整定之后块均与目标偏差 ≤ ±2%（不变）。
     $res = [ordered]@{
         valid = $false; reason = ''; n = 0; step_ms = $null
         pre_mean = $null; pre_sd = $null
         settle = $null; overshoot_pct = $null; peak_raw = $null
         peak_block = $null; peak_block_pct = $null
         steady_mean = $null; steady_err_pct = $null; steady_sd = $null
-        u_mean = $null; u_max = $null; blocks = 0
+        u_mean = $null; u_max = $null; u_step = $null; blocks = 0
     }
     if ($Rows.Count -lt 20) { $res.reason = 'too few rows'; return [pscustomobject]$res }
     $rows = @($Rows | Sort-Object ms)
@@ -768,6 +769,9 @@ function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
     if ($idx -lt 0) { $res.reason = ('step {0}->{1} not found in t column' -f $From, $To); return [pscustomobject]$res }
     $stepMs = $rows[$idx].ms
     $res.step_ms = $stepMs
+    # 阶跃那一拍占空比跳了多少：交接文档 §7.1 的机理（ff 占多少 / P 占多少 / 其余是 ki·e 累加）
+    # 以前只能手工从原始 CSV 数，现在随指标一起落表。
+    if ($idx -ge 1) { $res.u_step = [int]$rows[$idx].u - [int]$rows[$idx - 1].u }
 
     # 阶跃前 200 ms 的实际速度：确认确实稳在 From 上（否则这次阶跃没有意义）
     # 发指令那一瞬蓝牙有 200~300ms 的接收盲区（固件 TX 环形缓冲只有 128 字节），
@@ -816,8 +820,8 @@ function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
     $res.blocks = $bMean.Count
     if ($bMean.Count -lt 3) { $res.reason = ('post step blocks={0} (<3)' -f $bMean.Count); return [pscustomobject]$res }
 
-    # ① 整定：从某块起，其后所有块里 >= 95% 落在 ±2% 带内
-    $tol = 0.02 * $To
+    # ① 整定：从某块起，其后所有块里 >= 95% 落在 ±6% 带内（2026-11-04 由 ±2% 放宽）
+    $tol = 0.06 * $To
     $setIdx = -1
     for ($i = 0; $i -lt $bMean.Count; $i++) {
         $ok = 0
@@ -826,7 +830,7 @@ function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
         }
         if ($ok -ge [math]::Ceiling(0.95 * ($bMean.Count - $i))) { $setIdx = $i; break }
     }
-    if ($setIdx -lt 0) { $res.reason = 'never settles into +-2% band'; return [pscustomobject]$res }
+    if ($setIdx -lt 0) { $res.reason = 'never settles into +-6% band'; return [pscustomobject]$res }
     $res.settle = $bStart[$setIdx] + 100 - $stepMs
     if ($res.settle -lt 100) { $res.settle = 100 }   # 低于一个测速块宽度没意义
 
@@ -851,12 +855,80 @@ function Get-StepMetrics([object[]]$Rows, [int]$From, [int]$To) {
     return [pscustomobject]$res
 }
 
-function Get-StepVerDict($m) {
-    $v = [ordered]@{ A_settle = $false; B_over = $false; C_steady = $false }
+# step_summary.csv：老表头 17 列，新表头 22 列（末尾追加 band/dir/ff/fan/u_step）。
+# 不删老文件、不改前 17 列的位置：历史行用空字段补齐，Excel 里新旧行仍能对齐看。
+$Script:StepSummaryHead = 'time,tag,side,from,to,kp,ki,kd,reps,settle,overshoot_pct,err_pct,sd,u_mean,pass1,pass2,pass3,band,dir,ff,fan,u_step'
+
+function Ensure-StepSummary([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Set-Content -Path $Path -Value $Script:StepSummaryHead -Encoding ASCII
+        return
+    }
+    $old = @(Get-Content -LiteralPath $Path)
+    if ($old.Count -eq 0) {
+        Set-Content -Path $Path -Value $Script:StepSummaryHead -Encoding ASCII
+        return
+    }
+    if ($old[0] -eq $Script:StepSummaryHead) { return }
+    $nOld = @($old[0] -split ',').Count
+    $pad = ''
+    if ($nOld -lt 22) { $pad = (',' * (22 - $nOld)) }
+    $new = New-Object System.Collections.Generic.List[string]
+    $new.Add($Script:StepSummaryHead)
+    for ($i = 1; $i -lt $old.Count; $i++) {
+        if ($old[$i].Trim() -eq '') { continue }
+        $new.Add($old[$i] + $pad)
+    }
+    Set-Content -Path $Path -Value $new -Encoding ASCII
+    Write-Host ('  [csv] 表头升级为 22 列（band/dir/ff/fan/u_step），历史 {0} 行已补齐空字段' -f ($new.Count - 1)) -ForegroundColor DarkGray
+}
+
+# 一行记录必须带上“这一格是什么参数”：档位、升/降、目标档那一套 kp/ki/kd/ff、本次负压、阶跃占空比跳变。
+function Add-StepSummary([string]$Path, [string]$Tag, [string]$Side, [int]$From, [int]$To, $M, $V, $Set, [int]$Reps) {
+    Ensure-StepSummary $Path
+    $ustep = ''
+    if ($null -ne $M.u_step) { $ustep = [string][int]$M.u_step }
+    Add-Content -Path $Path -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19},{20},{21}' -f `
+            (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $Side, $From, $To, `
+            $Set.kp, $Set.ki, $Set.kd, $Reps, $M.settle, $M.overshoot_pct, $M.steady_err_pct, $M.steady_sd, $M.u_mean, `
+            $V.A_settle, $V.B_over, $V.C_steady, $Set.band, $Set.dir, $Set.ff, $Fan, $ustep) -Encoding ASCII
+}
+
+# 档位：与固件 Car_TuneBandOf() 一致（<600 档 0、600~1199 档 1、>=1200 档 2）
+function Get-TuneBand([int]$To) {
+    if ($To -ge 1200) { return 2 }
+    if ($To -ge 600) { return 1 }
+    return 0
+}
+
+# 这次阶跃落在哪一格：档位按目标速度、方向按升/降 —— 固件就是按这两个下标锁存参数的，
+# 记日志/落 CSV 也必须取同一套，否则“当时用的哪套 kp/ki/kd/ff”就记错了。
+function Get-StepSetInfo($p, [string]$Side, [int]$From, [int]$To) {
+    $k = $Side.ToUpper()
+    $band = Get-TuneBand $To
+    $dir = 'up'; if ($To -lt $From) { $dir = 'dn' }
+    return [pscustomobject]@{
+        band = $band; dir = $dir
+        kp = $p."${k}_b${band}_${dir}_kp"; ki = $p."${k}_b${band}_${dir}_ki"
+        kd = $p."${k}_b${band}_${dir}_kd"; ff = $p."${k}_b${band}_${dir}_ff"
+    }
+}
+
+function Get-StepVerDict($m, [int]$To = 0) {
+    # 档 0（目标 <600 mm/s）按 §10.1 豁免条款判：② 放宽到 20%、③ 不做要求。
+    $band = 0
+    if ($To -gt 0) { $band = Get-TuneBand $To }
+    $overMax = 10.0
+    if ($band -eq 0) { $overMax = 20.0 }
+    $v = [ordered]@{
+        A_settle = $false; B_over = $false; C_steady = $false
+        band = $band; exempt = ($band -eq 0); over_max = $overMax
+    }
     if ($m.valid) {
         $v.A_settle = ($m.settle -ge 100 -and $m.settle -le 300)
-        $v.B_over = ($m.overshoot_pct -le 10.0)
-        $v.C_steady = ((($m.steady_err_pct -as [double]) | ForEach-Object { [math]::Abs($_) }) -le 2.0)
+        $v.B_over = ($m.overshoot_pct -le $overMax)
+        if ($band -eq 0) { $v.C_steady = $true }
+        else { $v.C_steady = ((($m.steady_err_pct -as [double]) | ForEach-Object { [math]::Abs($_) }) -le 2.0) }
     }
     return [pscustomobject]$v
 }
@@ -865,10 +937,11 @@ function Show-StepMetrics($m, $v) {
     if (-not $m.valid) { Write-Warning ('  INVALID: {0}' -f $m.reason); return }
     Write-Host ('  pre={0} (sd {1})  settle={2}ms  peak_raw={3} (+{4}%)  peak_block=+{5}%' -f `
             (Fmt $m.pre_mean), (Fmt $m.pre_sd), (Fmt $m.settle), (Fmt $m.peak_raw), (Fmt $m.overshoot_pct), (Fmt $m.peak_block_pct)) -ForegroundColor Gray
-    Write-Host ('  steady={0}  err={1}%  sd={2}  u_mean={3}  blocks={4}' -f `
-            (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), (Fmt $m.u_mean), $m.blocks) -ForegroundColor Gray
+    Write-Host ('  steady={0}  err={1}%  sd={2}  u_mean={3}  u_step={4}  blocks={5}' -f (Fmt $m.steady_mean), (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), $m.u_mean, (Fmt $m.u_step), $m.blocks) -ForegroundColor Gray
     $cc = 'Red'; if ($v.A_settle -and $v.B_over -and $v.C_steady) { $cc = 'Green' }
-    Write-Host ('  PASS: [1]settle={0} [2]overshoot={1} [3]steady={2}' -f $v.A_settle, $v.B_over, $v.C_steady) -ForegroundColor $cc
+    $ex = ''
+    if ($v.exempt) { $ex = ('   [band0 exempt: overshoot<={0}% steady not judged]' -f $v.over_max) }
+    Write-Host (('  PASS: [1]settle={0} [2]overshoot={1} [3]steady={2}' -f $v.A_settle, $v.B_over, $v.C_steady) + $ex) -ForegroundColor $cc
 }
 
 function Do-Step($sp) {
@@ -895,10 +968,11 @@ function Do-Step($sp) {
         }
     }
     $p = Get-TuneParams $sp
+    $vband = Get-TuneBand $Target
     foreach ($sd in $sides) {
         $k = $sd.ToUpper()
-        Write-Host ('  now {0} up: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $p."${k}_up_ff") -ForegroundColor Green
-        Write-Host ('  now {0} dn: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_dn_kp", $p."${k}_dn_ki", $p."${k}_dn_kd", $p."${k}_dn_ff") -ForegroundColor Green
+        Write-Host ('  now {0} b{1} up: kp={2} ki={3} kd={4} ff={5}' -f $k, $vband, $p."${k}_b${vband}_up_kp", $p."${k}_b${vband}_up_ki", $p."${k}_b${vband}_up_kd", $p."${k}_b${vband}_up_ff") -ForegroundColor Green
+        Write-Host ('  now {0} b{1} dn: kp={2} ki={3} kd={4} ff={5}' -f $k, $vband, $p."${k}_b${vband}_dn_kp", $p."${k}_b${vband}_dn_ki", $p."${k}_b${vband}_dn_kd", $p."${k}_b${vband}_dn_ff") -ForegroundColor Green
     }
 
     $armMs = 0; if ($Fan -gt 0) { $armMs = 1500 }
@@ -938,7 +1012,7 @@ function Do-Step($sp) {
             $proj = Project-Side (Trim-StopTail $rowsClean $Target $sd) $sd
             $m = Get-StepMetrics $proj $From $Target
             if (-not $m.valid) { Write-Warning ("  rep {0} {1} invalid: {2}" -f $rep, $sd.ToUpper(), $m.reason) }
-            $v = Get-StepVerDict $m
+            $v = Get-StepVerDict $m $Target
             if ($sides.Count -gt 1) { Write-Host ("  ---- {0} side ----" -f $sd.ToUpper()) -ForegroundColor Cyan }
             Write-Host ('  {0}: {1}->{2}' -f $sd.ToUpper(), $From, $Target) -ForegroundColor Gray
             Show-StepMetrics $m $v
@@ -952,16 +1026,18 @@ function Do-Step($sp) {
             $log.Add(('[{0}] step tag={1} rep={2} {3}->{4} mm/s run={5}ms hold={6}ms fan={7} travel={8}mm' -f `
                         (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $From, $Target, $RunMs, $HoldMs, $Fan, $travel))
             foreach ($sd in $sides) {
-                $k = $sd.ToUpper()
-                $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd"))
+                $k = $sd.ToUpper(); $vb = Get-TuneBand $Target
+                $log.Add(('  gains {0} b{1} up: kp={2} ki={3} kd={4} ff={5} | dn: kp={6} ki={7} kd={8} ff={9}' -f `
+                            $k, $vb, $p."${k}_b${vb}_up_kp", $p."${k}_b${vb}_up_ki", $p."${k}_b${vb}_up_kd", $p."${k}_b${vb}_up_ff", `
+                            $p."${k}_b${vb}_dn_kp", $p."${k}_b${vb}_dn_ki", $p."${k}_b${vb}_dn_kd", $p."${k}_b${vb}_dn_ff"))
             }
             $log.Add(('  CSV: {0}' -f $file))
             foreach ($sd in $sides) {
                 $e = $bySide[$sd]; $k = $sd.ToUpper()
-                $log.Add(('  {0}: pre={1} (sd {2})  settle={3}ms  peak_raw={4} (+{5}%)  peak_block=+{6}%  steady={7}  err={8}%  sd={9}  u_mean={10}  => [1]{11} [2]{12} [3]{13}' -f `
+                $log.Add(('  {0}: pre={1} (sd {2})  settle={3}ms  peak_raw={4} (+{5}%)  peak_block=+{6}%  steady={7}  err={8}%  sd={9}  u_mean={10}  u_step={14}  => [1]{11} [2]{12} [3]{13}' -f `
                             $k, (Fmt $e.m.pre_mean), (Fmt $e.m.pre_sd), (Fmt $e.m.settle), (Fmt $e.m.peak_raw), (Fmt $e.m.overshoot_pct), `
                             (Fmt $e.m.peak_block_pct), (Fmt $e.m.steady_mean), (Fmt $e.m.steady_err_pct), (Fmt $e.m.steady_sd), `
-                            $e.m.u_mean, $e.v.A_settle, $e.v.B_over, $e.v.C_steady))
+                            $e.m.u_mean, $e.v.A_settle, $e.v.B_over, $e.v.C_steady, (Fmt $e.m.u_step)))
             }
             Add-Content -Path $LogPath -Value $log -Encoding UTF8
         }
@@ -987,13 +1063,13 @@ function Do-Step($sp) {
         Write-Host ('  PASS: [1]={0} [2]={1} [3]={2}' -f $ps, $po, $pc) -ForegroundColor $cc
 
         $sum = Join-Path $OutDir 'step_summary.csv'
-        if (-not (Test-Path $sum)) {
-            Set-Content -Path $sum -Value 'time,tag,side,from,to,kp,ki,kd,reps,settle,overshoot_pct,err_pct,sd,u_mean,pass1,pass2,pass3' -Encoding ASCII
+        $set = Get-StepSetInfo $p $sd $From $Target
+        $med = [pscustomobject]@{
+            settle = $settle; overshoot_pct = $over; steady_err_pct = $err; steady_sd = $sdv
+            u_mean = $um; u_step = (Get-Median (@($valid | ForEach-Object { $_.m.u_step })))
         }
-        $k = $sd.ToUpper()
-        Add-Content -Path $sum -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
-                (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $sd, $From, $Target, `
-                $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $valid.Count, $settle, $over, $err, $sdv, $um, $ps, $po, $pc) -Encoding ASCII
+        $maj = [pscustomobject]@{ A_settle = $ps; B_over = $po; C_steady = $pc }
+        Add-StepSummary $sum $Tag $sd $From $Target $med $maj $set $valid.Count
     }
 }
 
@@ -1058,8 +1134,11 @@ function Do-Profile($sp) {
     }
     $p = Get-TuneParams $sp
     $k = $Side.ToUpper()
-    Write-Host ('  now {0} up: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", $p."${k}_up_ff") -ForegroundColor Green
-    Write-Host ('  now {0} dn: kp={1} ki={2} kd={3} ff={4}' -f $k, $p."${k}_dn_kp", $p."${k}_dn_ki", $p."${k}_dn_kd", $p."${k}_dn_ff") -ForegroundColor Green
+    foreach ($vb in @(0, 1, 2)) {
+        Write-Host ('  now {0} b{1} up: kp={2} ki={3} kd={4} ff={5} | dn: kp={6} ki={7} kd={8} ff={9}' -f `
+            $k, $vb, $p."${k}_b${vb}_up_kp", $p."${k}_b${vb}_up_ki", $p."${k}_b${vb}_up_kd", $p."${k}_b${vb}_up_ff", `
+            $p."${k}_b${vb}_dn_kp", $p."${k}_b${vb}_dn_ki", $p."${k}_b${vb}_dn_kd", $p."${k}_b${vb}_dn_ff") -ForegroundColor Green
+    }
 
     for ($rep = 1; $rep -le $Reps; $rep++) {
         Write-Info ("-- rep {0}/{1}" -f $rep, $Reps)
@@ -1118,7 +1197,11 @@ function Do-Profile($sp) {
             $log.Add('------------------------------------------------------------')
             $log.Add(('[{0}] profile tag={1} rep={2} side={3} steps={4} fan={5}' -f `
                         (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $rep, $Side, $spec, $Fan))
-            $log.Add(('  gains {0}: kp={1} ki={2} kd={3}' -f $k, $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd"))
+            foreach ($vb in @(0, 1, 2)) {
+                $log.Add(('  gains {0} b{1}: up kp={2} ki={3} kd={4} ff={5} | dn kp={6} ki={7} kd={8} ff={9}' -f `
+                            $k, $vb, $p."${k}_b${vb}_up_kp", $p."${k}_b${vb}_up_ki", $p."${k}_b${vb}_up_kd", $p."${k}_b${vb}_up_ff", `
+                            $p."${k}_b${vb}_dn_kp", $p."${k}_b${vb}_dn_ki", $p."${k}_b${vb}_dn_kd", $p."${k}_b${vb}_dn_ff"))
+            }
             $log.Add(('  CSV: {0}' -f $file))
         }
 
@@ -1128,24 +1211,18 @@ function Do-Profile($sp) {
             if ($i1 -le $trans[$j].idx + 4) { continue }
             $slice = $proj[$i0..$i1]
             $m = Get-StepMetrics $slice $trans[$j].from $trans[$j].to
-            $v = Get-StepVerDict $m
+            $v = Get-StepVerDict $m $trans[$j].to
             Write-Host ('  {0}->{1}:' -f $trans[$j].from, $trans[$j].to) -ForegroundColor Cyan
             Show-StepMetrics $m $v
             if ($LogPath -ne '' -and $m.valid) {
-                $log.Add(('  {0}->{1}: pre={2} (sd {3})  settle={4}ms  peak_raw={5} (+{6}%)  peak_block=+{7}%  steady={8}  err={9}%  sd={10}  u_mean={11}  => [1]{12} [2]{13} [3]{14}' -f `
+                $log.Add(('  {0}->{1}: pre={2} (sd {3})  settle={4}ms  peak_raw={5} (+{6}%)  peak_block=+{7}%  steady={8}  err={9}%  sd={10}  u_mean={11}  u_step={15}  => [1]{12} [2]{13} [3]{14}' -f `
                             $trans[$j].from, $trans[$j].to, (Fmt $m.pre_mean), (Fmt $m.pre_sd), (Fmt $m.settle), `
                             (Fmt $m.peak_raw), (Fmt $m.overshoot_pct), (Fmt $m.peak_block_pct), (Fmt $m.steady_mean), `
-                            (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), (Fmt $m.u_mean), $v.A_settle, $v.B_over, $v.C_steady))
+                            (Fmt $m.steady_err_pct), (Fmt $m.steady_sd), (Fmt $m.u_mean), $v.A_settle, $v.B_over, $v.C_steady, (Fmt $m.u_step)))
             }
             if ($m.valid) {
-                $sum = Join-Path $OutDir 'step_summary.csv'
-                if (-not (Test-Path $sum)) {
-                    Set-Content -Path $sum -Value 'time,tag,side,from,to,kp,ki,kd,reps,settle,overshoot_pct,err_pct,sd,u_mean,pass1,pass2,pass3' -Encoding ASCII
-                }
-                Add-Content -Path $sum -Value ('{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}' -f `
-                        (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Tag, $Side, $trans[$j].from, $trans[$j].to, `
-                        $p."${k}_up_kp", $p."${k}_up_ki", $p."${k}_up_kd", 1, $m.settle, $m.overshoot_pct, $m.steady_err_pct, `
-                        $m.steady_sd, $m.u_mean, $v.A_settle, $v.B_over, $v.C_steady) -Encoding ASCII
+                $set = Get-StepSetInfo $p $Side $trans[$j].from $trans[$j].to
+                Add-StepSummary (Join-Path $OutDir 'step_summary.csv') $Tag $Side $trans[$j].from $trans[$j].to $m $v $set 1
             }
         }
         if ($LogPath -ne '') { Add-Content -Path $LogPath -Value $log -Encoding UTF8 }
@@ -1245,7 +1322,7 @@ function Invoke-SelfTest {
         $srows.Add([pscustomobject]@{ ms = 40000 + $t; t = $tgt; f = [int][math]::Round($fv + $noise); u = 900 })
     }
     $sm = Get-StepMetrics $srows 500 1000
-    $sv = Get-StepVerDict $sm
+    $sv = Get-StepVerDict $sm 1000
     Show-StepMetrics $sm $sv
     if (-not $sm.valid) { Write-Warning ('  step metrics INVALID: {0}' -f $sm.reason) }
     elseif ($sv.A_settle -and $sv.B_over -and $sv.C_steady) { Write-Host '  step 500->1000 OK' -ForegroundColor Green }
@@ -1261,7 +1338,7 @@ function Invoke-SelfTest {
         $drows.Add([pscustomobject]@{ ms = 40000 + $t; t = $tgt; f = [int][math]::Round($dv0); u = 700 })
     }
     $dm = Get-StepMetrics $drows 1500 1000
-    $dvd = Get-StepVerDict $dm
+    $dvd = Get-StepVerDict $dm 1000
     Show-StepMetrics $dm $dvd
     if ($dm.valid -and $dvd.A_settle) { Write-Host '  step 1500->1000 OK' -ForegroundColor Green }
     else { Write-Warning '  step 1500->1000 metrics not as expected' }
@@ -1287,13 +1364,55 @@ function Invoke-SelfTest {
         if ($j -lt $tr.Count - 1) { $i1 = $tr[$j + 1].idx - 1 } else { $i1 = $prows.Count - 1 }
         $slice = $prows[$i0..$i1]
         $pm = Get-StepMetrics $slice $tr[$j].from $tr[$j].to
-        $pv = Get-StepVerDict $pm
+        $pv = Get-StepVerDict $pm $tr[$j].to
         Write-Host ('  {0}->{1}:' -f $tr[$j].from, $tr[$j].to) -ForegroundColor Cyan
         Show-StepMetrics $pm $pv
         if (-not ($pm.valid -and $pv.A_settle -and $pv.B_over -and $pv.C_steady)) { $okP = $false }
     }
     if ($okP) { Write-Host '  profile split OK' -ForegroundColor Green }
     else { Write-Warning '  profile split metrics not as expected' }
+
+    Write-Info '== selftest: band 0 exemption (目标 <600：② 放宽到 20%、③ 不判) =='
+    $brows = New-Object System.Collections.Generic.List[object]
+    for ($t2 = 0; $t2 -le 3000; $t2 += 25) {
+        $tgt = 1000; $f = 1000
+        if ($t2 -ge 1200) { $tgt = 500 }
+        if ($t2 -ge 1200 -and $t2 -lt 1425) { $f = 440 }    # 12% 下冲：按 10% 判不过、按 20% 判过
+        if ($t2 -ge 1425) { $f = 500 }
+        $brows.Add([pscustomobject]@{ ms = 70000 + $t2; t = $tgt; f = $f; u = 400 })
+    }
+    $bm = Get-StepMetrics $brows 1000 500
+    $bv = Get-StepVerDict $bm 500
+    Show-StepMetrics $bm $bv
+    if ($bv.band -ne 0 -or -not $bv.exempt) { Write-Warning '  band0 verdict MISMATCH (band/exempt)'; exit 1 }
+    if (-not $bv.B_over -or -not $bv.C_steady) { Write-Warning '  band0 verdict MISMATCH (②<=20% 且 ③ 不计)'; exit 1 }
+    Write-Host '  band0 exemption OK' -ForegroundColor Green
+
+    Write-Info '== selftest: step_summary 22 列与“按档/方向取参数” =='
+    $tmpCsv = Join-Path $env:TEMP ('step_sum_' + [guid]::NewGuid().ToString('N') + '.csv')
+    Set-Content -Path $tmpCsv -Value 'time,tag,side,from,to,kp,ki,kd,reps,settle,overshoot_pct,err_pct,sd,u_mean,pass1,pass2,pass3' -Encoding ASCII
+    Add-Content -Path $tmpCsv -Value '2026-10-31 19:18:39,r4_ff000,l,1500,1000,0.2,0.08,0.04,1,700,29.2,-0.02,13.6,859,False,False,True' -Encoding ASCII
+    $fakeP = [pscustomobject]@{
+        L_b2_up_kp = 0.200; L_b2_up_ki = 0.080; L_b2_up_kd = 0.040; L_b2_up_ff = 0.600
+        L_b2_dn_kp = 0.150; L_b2_dn_ki = 0.080; L_b2_dn_kd = 0.000; L_b2_dn_ff = -0.100
+    }
+    $fs = Get-StepSetInfo $fakeP 'l' 1000 1500
+    $fm = [pscustomobject]@{ settle = 200; overshoot_pct = 5.0; steady_err_pct = 0.3; steady_sd = 9.0; u_mean = 950; u_step = 507 }
+    $fvd = Get-StepVerDict $fm 1500
+    Add-StepSummary $tmpCsv 'selftest' 'l' 1000 1500 $fm $fvd $fs 3
+    $back = @(Get-Content -LiteralPath $tmpCsv)
+    Remove-Item -LiteralPath $tmpCsv -Force
+    $nH = @($back[0] -split ',').Count
+    $nOldRow = @($back[1] -split ',').Count
+    $nNewRow = @($back[2] -split ',').Count
+    $cells = $back[2] -split ','
+    Write-Host ('  header={0}  legacy row={1}  new row={2}  | band={3} dir={4} kp={5} ff={6} fan={7} u_step={8}' -f `
+            $nH, $nOldRow, $nNewRow, $cells[17], $cells[18], $cells[5], $cells[19], $cells[20], $cells[21]) -ForegroundColor Green
+    if ($nH -ne 22 -or $nOldRow -ne 22 -or $nNewRow -ne 22) { Write-Warning '  step_summary 列数 MISMATCH'; exit 1 }
+    if ($cells[17] -ne '2' -or $cells[18] -ne 'up' -or $cells[5] -ne '0.2' -or $cells[19] -ne '0.6' -or $cells[21] -ne '507') {
+        Write-Warning '  step_summary 参数取格 MISMATCH'; exit 1
+    }
+    Write-Host '  step_summary OK' -ForegroundColor Green
 }
 
 function Do-Metrics([string]$Path) {

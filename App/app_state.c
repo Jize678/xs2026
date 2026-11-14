@@ -13,7 +13,6 @@ EventGroupHandle_t g_app_events    = NULL;
 
 TaskHandle_t g_task_ctrl    = NULL;
 TaskHandle_t g_task_keys    = NULL;
-TaskHandle_t g_task_display = NULL;
 TaskHandle_t g_task_serial  = NULL;
 
 volatile uint8_t g_wave_enable = 0;

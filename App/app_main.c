@@ -24,7 +24,6 @@
 #include "Delay.h"
 #include "RGB_Led.h"
 #include "Led_Status.h"
-#include "OLED.h"
 #include "M3PWM.h"
 #include "Motor_ctr.h"
 #include "ABEncoder.h"
@@ -43,8 +42,6 @@ static void App_HardwareInit(void)
 	/* 指示灯：先把 JTAG 关掉，PA15/PB3 才能当普通 GPIO 用 */
 	RGB_Init();
 	Led_Status_SelfTest();          /* 上电自检：两灯亮 500ms（阻塞 0.5s） */
-
-	OLED_Init();
 
 	M3PWM_Init();                   /* 负压风机 TIM2_CH4 */
 	Motor_Init();                   /* 双电机 TIM1_CH2/CH4 + 方向/使能 */
@@ -75,8 +72,6 @@ static void App_CreateTasks(void)
 	ok = xTaskCreate(App_CtrlTask,    "ctrl",   APP_STACK_CTRL,    NULL, APP_PRIO_CTRL,    &g_task_ctrl);
 	configASSERT(ok == pdPASS);
 	ok = xTaskCreate(App_KeysTask,    "keys",   APP_STACK_KEYS,    NULL, APP_PRIO_KEYS,    &g_task_keys);
-	configASSERT(ok == pdPASS);
-	ok = xTaskCreate(App_DisplayTask, "disp",   APP_STACK_DISPLAY, NULL, APP_PRIO_DISPLAY, &g_task_display);
 	configASSERT(ok == pdPASS);
 	ok = xTaskCreate(App_SerialTask,  "serial", APP_STACK_SERIAL,  NULL, APP_PRIO_SERIAL,  &g_task_serial);
 	configASSERT(ok == pdPASS);
@@ -114,7 +109,7 @@ int main(void)
 	/* 4 位全给抢占优先级：FreeRTOS 的 BASEPRI 屏蔽要求分组为 4 */
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
 
-	/* DWT 周期计数器做微秒延时（ADC 模拟开关切换、OLED 软 I2C 用到） */
+	/* DWT 周期计数器做微秒延时（ADC 模拟开关切换用到） */
 	Delay_Init();
 
 	App_HardwareInit();

@@ -7,7 +7,7 @@
   *   IDLE  待机    : LED0 与 LED1 同步闪（亮 0.5s、灭 0.5s，表示"在线待命"）
   *   TRACK 循迹运行: LED0 常亮（运行中）；
   *                   LED1 在线上时灭，丢线时快闪（提示正在找线）
-  *   TEST  电机测试: LED0 / LED1 交替闪（250ms 一换，一眼能和别的方式区分）
+  *   TEST  测试/调参: LED0 / LED1 交替闪（250ms 一换，一眼能和别的方式区分）
   *   ALARM 异常停车: 两颗灯同频快闪（例如丢线保护停车，等新指令）
   *   FAN   风扇测试: 两颗灯同频快闪（串口 'f' 起风扇，5 秒后自动停）
   *   FAN+  延时风扇: 两颗灯超快同频闪（串口 'ff'，先等 5 秒，再吹 5 秒）
@@ -28,8 +28,6 @@ typedef enum
 	LED_ST_TRACK,        /* 循迹运行：LED0 常亮，丢线时 LED1 快闪 */
 	LED_ST_TEST,         /* 电机测试：两灯交替闪 */
 	LED_ST_ALARM,        /* 异常停车：两灯快闪 */
-	LED_ST_FORCE_ON,     /* 调试：两灯常亮（串口 '3'） */
-	LED_ST_FORCE_OFF,    /* 调试：两灯常灭（串口 '4'） */
 	LED_ST_FAN_TEST,     /* 风扇测试：两灯同频快闪（串口 'f'，5 秒） */
 	LED_ST_FAN_FAST      /* 延时风扇测试：两灯超快同频闪（串口 'ff'，先等 5s 再吹 5s） */
 } Led_State_t;
@@ -40,7 +38,7 @@ typedef enum
 #define LED_IDLE_PERIOD_MS       1000   /* 待机同步闪：周期 */
 #define LED_LOST_ON_MS           40     /* 丢线提示：每次亮多久 */
 #define LED_LOST_MS              120    /* 丢线提示：周期 */
-#define LED_TEST_HALF_MS         250    /* 电机测试：交替的半周期 */
+#define LED_TEST_HALF_MS         250    /* 测试/调参：交替的半周期 */
 #define LED_ALARM_HALF_MS        80     /* 异常停车：快闪半周期 */
 #define LED_FAN_FAST_HALF_MS     40     /* 延时风扇测试：超快闪半周期 */
 

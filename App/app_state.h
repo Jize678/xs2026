@@ -6,7 +6,7 @@
   *  数据流：
   *    USART2 ISR ──(环形缓冲 + 任务通知)──▶ serial 任务 ──(指令队列)──▶ ctrl 任务
   *    按键 GPIO ──▶ keys 任务 ──(指令队列)──▶ ctrl 任务
-  *    ctrl 任务 ──(事件组 / 共享变量)──▶ display 任务、serial 任务
+  *    ctrl 任务 ──(事件组 / 共享变量)──▶ serial 任务
   *
   *  “执行动作”的只有 ctrl 任务：模式切换、电机、风扇、LED 状态机全部在
   *  2ms 控制任务里完成，其它任务只投递指令、读取状态，避免并发写外设。
@@ -38,8 +38,6 @@
 typedef enum
 {
 	APP_CMD_MODE = 0,        /* arg = Car_Mode_t */
-	APP_CMD_LED_FORCE_ON,    /* 指示灯强制常亮（调试） */
-	APP_CMD_LED_FORCE_OFF,   /* 指示灯强制常灭（调试） */
 	APP_CMD_WAVE_TOGGLE,     /* 切换波形帧输出 */
 	APP_CMD_WHEEL_LEFT,      /* arg = 百分比 0~100，左轮单独转 2 秒 */
 	APP_CMD_WHEEL_RIGHT,     /* arg = 百分比 0~100，右轮单独转 2 秒 */
@@ -73,7 +71,6 @@ extern EventGroupHandle_t g_app_events;       /* 运行状态事件组 */
 /* 任务句柄（串口 's' 指令打印栈水印时使用） */
 extern TaskHandle_t g_task_ctrl;
 extern TaskHandle_t g_task_keys;
-extern TaskHandle_t g_task_display;
 extern TaskHandle_t g_task_serial;
 
 /* 波形帧开关（serial 任务读，任何任务可投递 APP_CMD_WAVE_TOGGLE 切换） */
@@ -115,7 +112,6 @@ BaseType_t  App_PostCmdArg(AppCmdType_t type, uint8_t arg, int16_t arg16);
 /* 任务入口 */
 void App_CtrlTask(void *argument);
 void App_KeysTask(void *argument);
-void App_DisplayTask(void *argument);
 void App_SerialTask(void *argument);
 
 #endif /* __APP_STATE_H */

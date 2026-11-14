@@ -708,11 +708,6 @@
               <FilePath>.\User\Motor_ctr.h</FilePath>
             </File>
             <File>
-              <FileName>OLED.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\User\OLED.c</FilePath>
-            </File>
-            <File>
               <FileName>ABEncoder.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\User\ABEncoder.c</FilePath>
@@ -841,11 +836,6 @@
               <FileName>app_keys.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\App\app_keys.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_display.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\App\app_display.c</FilePath>
             </File>
             <File>
               <FileName>app_serial.c</FileName>

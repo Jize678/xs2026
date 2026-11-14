@@ -10,23 +10,24 @@
   *  发：printf 仍然走阻塞式 fputc（保持原行为），但由 TxLock/TxUnlock
   *      （递归互斥量）串行化，避免波形帧与调试打印交错成乱码。
   *
-  *  指令（与原 Car_Control_Task 完全兼容，另加几个调试指令）：
-  *    's' 一键停车 IDLE      '1' 循迹 TRACK        '2' 电机测试
-  *    '3' 指示灯常亮         '4' 指示灯常灭        '5' 引脚诊断
+  *  指令（2026-11-14 起已去掉 '2' 电机测试 / '3''4' 灯强制 / '5' 引脚诊断，
+  *        显示任务也一并移除，板子上只剩状态灯）：
+  *    's' 一键停车 IDLE      '1' 循迹 TRACK        '0' 也是停车（保留原习惯）
   *    'p' 风机 PWM 寄存器诊断                     'w' 切换波形帧
   *    '?' 状态行             'z' 栈水印/剩余堆     'g' 灰度 16 路实时打印（开关）
-  *    '0' 仍然也是停车（保留原习惯，一车两键都能停）
-  *    （朝向实时打印 'hx' 已随陀螺仪一起移除）
-  *    'testl<0~400>' 左轮速度环标定（目标速度=编码器每 2ms 计数）
-  *    'testr<0~400>' 右轮速度环标定
+  *    'testl<0~4000>' 左轮速度环标定（目标速度单位 mm/s）
+  *    'testr<0~4000>' 右轮速度环标定
   *    'mc' 推车测距开关：第一次开始累计（每秒打一行），第二次停止并算每米计数
+  *    'bmq' 编码器实时监视（20ms 一行，不动电机/模式）
   *    'tune' 速度环调参模式：'!' 开始闭环、hlt 临时停车、0 退出；
   *           vl/vr<mm/s> 设左右目标，kpl/kpr 等在线改增益，kq 查参数，
-  *           运行时每 100ms 打一行 CSV：ms,tL,fL,uL,tR,fR,uR
+  *           运行时每 20ms 打一行 CSV：ms,tL,fL,uL,tR,fR,uR
   *    'l<0~100>' 左轮单独按该占空比转 2 秒（回车结束）
   *    'r<0~100>' 右轮单独按该占空比转 2 秒（回车结束）
   *    'f<0~100>' 负压风扇按该油门跑 5 秒（先 1.5 秒最低油门等电调解锁，
   *               期间两灯同频快闪，时间到自动停）
+  *    'ff<0~100>' 先等 5 秒再按该油门吹 5 秒
+  *    'tf<0~100>' 负压常开（保持），tf0 回怠速
   ******************************************************************************
   */
 
@@ -120,10 +121,9 @@ static void Serial_SendStatus(void)
 
 static void Serial_SendStacks(void)
 {
-	Serial_Log("stk(ctrl=%u keys=%u disp=%u ser=%u) heap=%u\r\n",
+	Serial_Log("stk(ctrl=%u keys=%u ser=%u) heap=%u\r\n",
 	           (unsigned int)uxTaskGetStackHighWaterMark(g_task_ctrl),
 	           (unsigned int)uxTaskGetStackHighWaterMark(g_task_keys),
-	           (unsigned int)uxTaskGetStackHighWaterMark(g_task_display),
 	           (unsigned int)uxTaskGetStackHighWaterMark(g_task_serial),
 	           (unsigned int)xPortGetFreeHeapSize());
 }
@@ -1131,25 +1131,6 @@ static void Serial_HandleByte(uint8_t ch)
 
 		case '1':
 			App_PostCmd(APP_CMD_MODE, (uint8_t)CAR_MODE_TRACK);
-			break;
-
-		case '2':
-			App_PostCmd(APP_CMD_MODE, (uint8_t)CAR_MODE_MOTOR_TEST);
-			break;
-
-		case '3':
-			App_PostCmd(APP_CMD_LED_FORCE_ON, 0);
-			break;
-
-		case '4':
-			App_PostCmd(APP_CMD_LED_FORCE_OFF, 0);
-			break;
-
-		case '5':
-			/* 引脚/电平诊断：多行 printf，整段加锁避免被波形帧打断 */
-			Uart2_TxLock();
-			Car_Control_PrintLedDiag();
-			Uart2_TxUnlock();
 			break;
 
 		case 'p':

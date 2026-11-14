@@ -63,7 +63,7 @@ void Led_Status_Update(void)
 			break;
 
 		case LED_ST_TEST:
-			/* 电机测试：两灯交替闪 */
+			/* 测试/调参：两灯交替闪 */
 			led0 = (((s_tick % (2 * LED_TEST_HALF_MS)) < LED_TEST_HALF_MS) ? 1 : 0);
 			led1 = led0 ? 0 : 1;
 			break;
@@ -85,18 +85,6 @@ void Led_Status_Update(void)
 			 * 从"开始等 5 秒"一直闪到"吹完 5 秒自动停" */
 			led0 = (((s_tick % (2 * LED_FAN_FAST_HALF_MS)) < LED_FAN_FAST_HALF_MS) ? 1 : 0);
 			led1 = led0;
-			break;
-
-		case LED_ST_FORCE_ON:
-			/* 调试：两灯常亮 */
-			led0 = 1;
-			led1 = 1;
-			break;
-
-		case LED_ST_FORCE_OFF:
-			/* 调试：两灯常灭 */
-			led0 = 0;
-			led1 = 0;
 			break;
 
 		case LED_ST_IDLE:

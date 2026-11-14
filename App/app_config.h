@@ -9,7 +9,6 @@
   *  ├──────────────┼──────┼────────┼──────────┼──────────────────────────────┤
   *  │ ctrl         │  4   │  256   │  2 ms    │ IMU/编码器/ADC/寻线/PID/电机  │
   *  │ keys         │  3   │  128   │ 10 ms    │ 按键扫描 → 指令队列           │
-  *  │ display      │  2   │  256   │ 50 ms    │ OLED 四行刷新                 │
   *  │ serial       │  2   │  288   │ 事件+20ms│ 串口指令解析 / 波形帧输出     │
   *  │ IDLE         │  0   │  128   │  —       │ 内核空闲任务                  │
   *  │ Tmr Svc      │  3   │  128   │  —       │ 控制任务看门狗（20ms 超时）   │
@@ -24,19 +23,16 @@
 /*---------------- 任务优先级 ----------------*/
 #define APP_PRIO_CTRL           4
 #define APP_PRIO_KEYS           3
-#define APP_PRIO_DISPLAY        2
 #define APP_PRIO_SERIAL         2
 
 /*---------------- 任务栈（单位：字，1 字 = 4 字节） ----------------*/
 #define APP_STACK_CTRL          256
 #define APP_STACK_KEYS          128
-#define APP_STACK_DISPLAY       256
 #define APP_STACK_SERIAL        288
 
 /*---------------- 任务周期（ms） ----------------*/
 #define APP_CTRL_PERIOD_MS      2       /* 控制环：与原 SysTick 2ms 中断一致 */
 #define APP_KEYS_PERIOD_MS      10      /* 按键扫描 */
-#define APP_DISPLAY_PERIOD_MS   50      /* OLED 刷新 */
 #define APP_WAVE_PERIOD_MS      20      /* 波形帧 50Hz（JustFloat 24 字节） */
 #define APP_ENC_MON_PERIOD_MS   20      /* 编码器监视（串口 'bmq'）打印周期，50Hz */
 #define APP_GRAY_MON_PERIOD_MS  100     /* 灰度监视（串口 'g'）打印周期，10Hz；
@@ -52,7 +48,7 @@
 
 
 /*---------------- 队列 ----------------*/
-#define APP_CMD_QUEUE_LEN       8       /* 指令队列深度（模式切换/LED 强制等） */
+#define APP_CMD_QUEUE_LEN       8       /* 指令队列深度（模式切换/单轮测试等） */
 
 /*---------------- 波形帧 ----------------*/
 /* VOFA+ JustFloat 协议：float32 小端 × N + 帧尾 00 00 80 7F */

@@ -95,14 +95,6 @@ static void App_ProcessCommands(void)
 				Car_Control_ApplyMode((Car_Mode_t)cmd.arg);
 				break;
 
-			case APP_CMD_LED_FORCE_ON:
-				Led_Status_SetState(LED_ST_FORCE_ON);
-				break;
-
-			case APP_CMD_LED_FORCE_OFF:
-				Led_Status_SetState(LED_ST_FORCE_OFF);
-				break;
-
 			case APP_CMD_WAVE_TOGGLE:
 				g_wave_enable = (uint8_t)(g_wave_enable ? 0u : 1u);
 				if(g_wave_enable)

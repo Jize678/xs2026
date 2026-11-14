@@ -52,8 +52,6 @@ uint8_t Car_Control_TakeLog(uint16_t *arg0, uint16_t *arg1)
 }
 
 static Car_Mode_t s_mode = CAR_MODE_IDLE;
-static uint16_t   s_test_ticks = 0;     /* 电机测试计时（单位：CAR_CTRL_TICK_MS） */
-static uint8_t    s_test_phase = 0;     /* 电机测试阶段：0=向前，1=停车 */
 static uint16_t   s_wheel_ticks = 0;    /* 单轮测试剩余 tick，0 = 未测试 */
 static uint16_t   s_fan_ticks = 0;      /* 风扇测试剩余 tick，0 = 未测试 */
 static uint16_t   s_fan_arm_ticks = 0;  /* 风扇测试里“压最低油门等解锁”的剩余 tick */
@@ -324,7 +322,6 @@ const char *Car_Control_GetModeName(void)
 	switch(s_mode)
 	{
 		case CAR_MODE_TRACK:      return "TRACK";
-		case CAR_MODE_MOTOR_TEST: return "TEST ";
 		case CAR_MODE_SPEED_TEST: return "SPEED";
 		case CAR_MODE_SPEED_TUNE: return "TUNE ";
 		case CAR_MODE_IDLE:
@@ -358,7 +355,7 @@ void Car_Control_Init(void)
 
 /**
   * @brief  切换运行模式
-  * @param  mode: CAR_MODE_IDLE / CAR_MODE_TRACK / CAR_MODE_MOTOR_TEST / CAR_MODE_SPEED_TUNE
+  * @param  mode: CAR_MODE_IDLE / CAR_MODE_TRACK / CAR_MODE_SPEED_TEST / CAR_MODE_SPEED_TUNE
   */
 void Car_Control_ApplyMode(Car_Mode_t mode)
 {
@@ -370,7 +367,7 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 	s_tune_tgt_l = 0;
 	s_tune_tgt_r = 0;
 	/* 负压与 ! 已经解耦：**重进 tune** 不打断正在吹的负压（连续实验要求它一直转），
-	 * 其余任何模式切换（IDLE / TRACK / MOTOR_TEST / SPEED_TEST）都把负压收回怠速
+	 * 其余任何模式切换（IDLE / TRACK / SPEED_TEST）都把负压收回怠速
 	 * 并清掉设定，避免离开调参模式后风机还在转。 */
 	if((mode != CAR_MODE_SPEED_TUNE) || (prev != CAR_MODE_SPEED_TUNE))
 	{
@@ -378,8 +375,6 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 		s_tune_fan_duty  = 0;
 	}
 	s_tune_band      = 0u;              /* 档位/方向随模式切换一起复位 */
-	s_test_ticks = 0;                   /* 切模式时把电机测试的计时清零 */
-	s_test_phase = 0;
 	s_wheel_ticks = 0;                  /* 切模式时取消单轮测试 */
 	s_spd_ticks   = 0;                  /* 切模式时取消速度环标定 */
 	s_fan_ticks  = 0;                   /* 切模式时取消风扇测试 */
@@ -415,15 +410,6 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 			s_tune_prev_l = 0;          /* 切进调参模式：前馈基准清零 */
 			s_tune_prev_r = 0;
 			Led_Status_SetState(LED_ST_TEST);
-			break;
-
-		case CAR_MODE_MOTOR_TEST:
-			/* 电机测试：双电机按 CAR_TEST_DUTY（30%）正向转，风扇不转（两灯交替闪） */
-			Led_Status_SetState(LED_ST_TEST);
-			M3PWM_SetDutyCycle(0);
-			Motor_SetSpeed(MOTOR_R, CAR_TEST_DUTY);
-			Motor_SetSpeed(MOTOR_L, CAR_TEST_DUTY);
-			Motor_Enable();
 			break;
 
 		case CAR_MODE_IDLE:
@@ -939,7 +925,7 @@ static void Car_Control_TuneUpdate(void)
 }
 
 /**
-  * @brief  每 2ms 调用一次：执行当前模式（TRACK 循迹 / MOTOR_TEST / SPEED_TEST / SPEED_TUNE / IDLE）
+  * @brief  每 2ms 调用一次：执行当前模式（TRACK 循迹 / SPEED_TEST / SPEED_TUNE / IDLE）
   */
 void Car_Control_Update(void)
 {
@@ -1021,29 +1007,6 @@ void Car_Control_Update(void)
 			Car_Control_TuneUpdate();
 			break;
 
-		case CAR_MODE_MOTOR_TEST:
-			/* 测试模式：占空比/使能在 ApplyMode 里已经设好，这里只负责时序
-			   0~CAR_TEST_FWD_MS      : 向前
-			   ~CAR_TEST_TIME_MS      : 停车（两路半桥不能反转）
-			   超过 CAR_TEST_TIME_MS  : 停车回待机 */
-			s_test_ticks++;
-			{
-				uint32_t t_ms = (uint32_t)s_test_ticks * CAR_CTRL_TICK_MS;
-
-				if(t_ms > CAR_TEST_TIME_MS)
-				{
-					Car_Control_ApplyMode(CAR_MODE_IDLE);   /* 4 秒到，自动停车 */
-				}
-				else if(t_ms > CAR_TEST_FWD_MS && s_test_phase == 0)
-				{
-					/* 进入第 2 段：两路半桥不能反转，这里直接停车（使能保持不动） */
-					s_test_phase = 1;
-					Motor_SetSpeed(MOTOR_R, 0);
-					Motor_SetSpeed(MOTOR_L, 0);
-				}
-			}
-			break;
-
 		case CAR_MODE_IDLE:
 		default:
 			/* 待机：停车动作已经在 Car_Control_ApplyMode(IDLE) 里做过一次，
@@ -1054,42 +1017,10 @@ void Car_Control_Update(void)
 
 /*------------------------------------------------------------------------------
  * 串口指令解析已迁移到 App\app_serial.c（serial 任务）：
- *   收到 '0'~'5' / 'w' / '?' 等后通过指令队列投递给控制任务，
+ *   收到 '0'/'1'/'w'/'?' 等后通过指令队列投递给控制任务，
  *   由控制任务调用 Car_Control_ApplyMode() 统一执行，避免与本文件的
  *   2ms 状态机并发写电机/指示灯。
  *----------------------------------------------------------------------------*/
-
-/**
-  * @brief  调试用：串口回发 PA15 / PB3 的引脚配置与真实电平
-  *
-  *   CRH/CRL 里 4bit 的配置含义：0x3 / 0x2 = 推挽输出，0x4 = 浮空输入，0x8 = 上/下拉输入
-  *   ODR = 软件写出去的电平；IDR = 引脚上真实读到的电平
-  *   如果 ODR=1 但 IDR=0，说明这个脚被外设（最常见是 JTAG）占着，软件的写没生效
-  *   AFIO_MAPR[27:24]：0x2 = JTAG 已关（SWD 保留），0x0 / 0x1 = JTAG 还开着
-  */
-void Car_Control_PrintLedDiag(void)
-{
-	uint16_t idr_a = GPIO_ReadInputData(GPIOA);
-	uint16_t idr_b = GPIO_ReadInputData(GPIOB);
-	uint16_t odr_a = GPIO_ReadOutputData(GPIOA);
-	uint16_t odr_b = GPIO_ReadOutputData(GPIOB);
-	uint8_t  cfg_pa15 = (uint8_t)((GPIOA->CRH >> 28) & 0x0F);   /* PA15 -> CRH bit31:28 */
-	uint8_t  cfg_pb3  = (uint8_t)((GPIOB->CRL >> 12) & 0x0F);   /* PB3  -> CRL bit15:12 */
-	uint8_t  mapr     = (uint8_t)((AFIO->MAPR >> 24) & 0x0F);
-
-	printf("mode=%d cfg:PA15=0x%X PB3=0x%X (0x3=push-pull out)\r\n",
-	       (int)s_mode, (unsigned int)cfg_pa15, (unsigned int)cfg_pb3);
-	printf("level: PA15 IDR=%d ODR=%d | PB3 IDR=%d ODR=%d\r\n",
-	       (idr_a & RGB0_PIN) ? 1 : 0, (odr_a & RGB0_PIN) ? 1 : 0,
-	       (idr_b & RGB1_PIN) ? 1 : 0, (odr_b & RGB1_PIN) ? 1 : 0);
-	/* 注意：SWJ_CFG 是只写位，原厂芯片读回来通常是 0，所以这一行只作参考 */
-	printf("AFIO_MAPR[27:24]=0x%X (0x2=JTAG disabled)\r\n", (unsigned int)mapr);
-	printf("motor: MOTOREN=%d R_PWM=%d/1000 L_PWM=%d/1000 FAN=%d/1000\r\n",
-	       GPIO_ReadOutputDataBit(MOTOREN_PORT, MOTOREN_PIN) ? 1 : 0,
-	       (int)((uint32_t)MOTOR_TIM->CCR2 * 1000 / (MOTOR_TIM->ARR + 1)),
-	       (int)((uint32_t)MOTOR_TIM->CCR4 * 1000 / (MOTOR_TIM->ARR + 1)),
-	       (int)((uint32_t)FAN_PWM_TIM->CCR4 * 1000 / (FAN_PWM_TIM->ARR + 1)));
-}
 
 /* ---------------- 循迹模式的分段选档（v4 定版，2026-11-05） ----------------
  * 调参模式是“阶跃那拍选一次、整段沿用”；循迹不一样：目标由位置环和起步

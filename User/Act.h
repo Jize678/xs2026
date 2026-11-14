@@ -27,18 +27,23 @@
  * 现有动作：
  *   ACT_TL —— 直角左转：左轮刹停（占空比 0，半桥下管常通 = 短路制动），
  *             右轮速度环闭环 1200 mm/s；左右编码器之差（右−左）达到
- *             “转 90° 对应的弧长”就完成：π/2 × 130 mm ≈ 204.2 mm ≈ 11125 counts
- *             （54476 counts/m）。完成后两个速度环复位、起步斜坡重爬，回循迹。
+ *             “转 90° 对应的弧长”就完成。act 的轮距标定值是 110 mm（真轮距 130，
+ *             但绕的圆心偏里 + 内侧轮被拖，130 会多转十几度），
+ *             即 π/2 × 110 mm ≈ 172.8 mm ≈ 9414 counts（54476 counts/m）。
+ *             完成后两个速度环复位、起步斜坡重爬，回循迹。
  *   ACT_TR —— 直角右转：镜像（右轮刹停，左轮 1200 mm/s，差 = 左−右）。
+ *   ACT_SF —— 直走：两轮各自闭环 1100 mm/s（循迹直道基准），
+ *             两轮平均里程达到 ACT_STRAIGHT_MM(100 mm) ≈ 5448 counts 完成。
  *
- * 串口：'3' = 单独测一次 ACT_TL，'4' = 单独测一次 ACT_TR。台架测试用，不消耗
+ * 串口：'3' = 单独测一次 ACT_TL，'4' = ACT_TR，'5' = ACT_SF。台架测试用，不消耗
  *       动作表；测完电机断电回 IDLE。
  *============================================================================*/
 
 #define ACT_TL              1u   /* 直角左转 */
 #define ACT_TR              2u   /* 直角右转 */
+#define ACT_SF              3u   /* 直走 */
 
-/* 动作表里的一格 = 上面两个值之一。动作表本体在 Act.c，改顺序只改那里。 */
+/* 动作表里的一格 = 上面三个值之一。动作表本体在 Act.c，改顺序只改那里。 */
 
 /* 延迟事件：2ms 环形里不能直接 printf（一行 ~5ms），登记在信箱里由串口任务打印 */
 #define ACT_EVT_NONE        0u
@@ -62,13 +67,13 @@ void Act_Update(void);
 /* 是否正在执行动作（Car_Control_Update 用它决定跑 act 还是跑位置环） */
 uint8_t Act_IsRunning(void);
 
-/* 串口 '3'/'4'：单独执行一次动作（台架测试，不消耗动作表）。返回 1 = 已启动 */
+/* 串口 '3'/'4'/'5'：单独执行一次动作（台架测试，不消耗动作表）。返回 1 = 已启动 */
 uint8_t Act_TestStart(uint8_t act);
 
 /* 取一条延迟事件（串口任务轮询）。返回 ACT_EVT_*，没有事件返回 ACT_EVT_NONE */
 uint8_t Act_TakeEvent(uint8_t *act_id, int32_t *diff_counts, uint16_t *elapsed_ms);
 
-/* 动作名（"act_tl" / "act_tr" / "act?"），打印用 */
+/* 动作名（"act_tl" / "act_tr" / "act_sf" / "act?"），打印用 */
 const char *Act_GetName(uint8_t act_id);
 
 #endif /* __ACT_H__ */

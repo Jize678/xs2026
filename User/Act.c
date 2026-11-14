@@ -57,9 +57,17 @@ static const uint8_t s_act_plan[] =
 #define ACT_REARM_QUIET_TICKS   5u      /* 动作结束后，条件消失保持 5 拍才重新武装 */
 
 #define ACT_TURN_ANGLE_DEG      90.0f   /* 直角 */
-#define ACT_WHEEL_BASE_MM       130.0f  /* 两轮中心距，与 PID_Controller.c 的 WHEEL_BASE_MM 一致 */
+#define ACT_WHEEL_BASE_MM       110.0f  /* act 转角标定值（2026-11-14 用户上车实测定）：真两轮中心距是
+                                         * 130 mm（= PID_Controller.c 的 WHEEL_BASE_MM，航向估计仍用它），
+                                         * 但刹住内侧轮时车身绕的圆心比轮接地点更靠里、内侧轮还会被拖一点，
+                                         * 按 130 算会多转十几度；标成 110 后 90° 与地面标线吻合。
+                                         * 只用于本文件 Act_TurnDiffTarget() 的转角目标。 */
 #define ACT_OUTER_SPEED_MM_S    1200.0f /* 外侧轮闭环目标（档 2 边界，速度环照样跟得住） */
-#define ACT_TIMEOUT_MS          1000u   /* 保护：1s 还没转到位 ⇒ 停 + 报警 */
+
+#define ACT_STRAIGHT_MM         100.0f  /* 直走（ACT_SF）里程，按两轮平均计数判 */
+#define ACT_STRAIGHT_SPEED_MM_S 1100.0f /* 直走两轮闭环目标 = 循迹直道基准 */
+
+#define ACT_TIMEOUT_MS          1000u   /* 保护：1s 还没到位 ⇒ 停 + 报警 */
 #define ACT_TIMEOUT_TICKS       (ACT_TIMEOUT_MS / 2u)
 
 #define ACT_DEG_TO_RAD          0.01745329252f
@@ -81,7 +89,7 @@ static volatile uint8_t s_ev_tail = 0u;     /* 消费者（串口任务）读 */
  *----------------------------------------------------------------------------*/
 static uint8_t  s_running   = 0u;   /* 1 = 正在执行动作 */
 static uint8_t  s_act_id    = 0u;   /* 当前动作 */
-static uint8_t  s_from_test = 0u;   /* 1 = 串口 '3'/'4' 台架测试（结束后断电回 IDLE） */
+static uint8_t  s_from_test = 0u;   /* 1 = 串口 '3'/'4'/'5' 台架测试（结束后断电回 IDLE） */
 static uint8_t  s_armed     = 0u;   /* 1 = 允许触发（上电/复位后要等条件先消失） */
 static uint8_t  s_hold      = 0u;   /* 触发条件连续成立拍数 */
 static uint8_t  s_quiet     = 0u;   /* 触发条件连续不成立拍数 */
@@ -89,7 +97,7 @@ static uint8_t  s_plan_idx  = 0u;   /* 动作表游标 */
 
 static int32_t  s_cnt_l0    = 0;    /* 动作开始时的左编码器计数 */
 static int32_t  s_cnt_r0    = 0;    /* 动作开始时的右编码器计数 */
-static int32_t  s_diff_target = 0;  /* 本次动作要转到的编码器差（counts） */
+static int32_t  s_diff_target = 0;  /* 本次动作的判据目标（counts）：转弯 = |左右差|，直走 = 两轮平均里程 */
 static uint16_t s_ticks     = 0u;   /* 已执行拍数 */
 
 /*------------------------------------------------------------------------------
@@ -116,6 +124,19 @@ static int32_t Act_TurnDiffTarget(void)
 	/* 90° 弧长（mm）× counts/mm，四舍五入到整数 counts */
 	float mm = (ACT_TURN_ANGLE_DEG * ACT_DEG_TO_RAD) * ACT_WHEEL_BASE_MM;
 	float counts = mm * (ENC_COUNTS_PER_METER / 1000.0f);
+
+	if(counts < 1.0f)
+	{
+		counts = 1.0f;
+	}
+
+	return (int32_t)(counts + 0.5f);
+}
+
+static int32_t Act_StraightTarget(void)
+{
+	/* 直走里程（mm）× counts/mm，四舍五入到整数 counts */
+	float counts = ACT_STRAIGHT_MM * (ENC_COUNTS_PER_METER / 1000.0f);
 
 	if(counts < 1.0f)
 	{
@@ -185,7 +206,7 @@ static void Act_Start(uint8_t act_id, uint8_t from_test)
 	s_from_test = from_test;
 	s_cnt_l0    = left_ecoder_cnt;
 	s_cnt_r0    = right_ecoder_cnt;
-	s_diff_target = Act_TurnDiffTarget();
+	s_diff_target = (act_id == ACT_SF) ? Act_StraightTarget() : Act_TurnDiffTarget();
 	s_ticks     = 0u;
 	s_hold      = 0u;
 	s_quiet     = 0u;
@@ -195,11 +216,20 @@ static void Act_Start(uint8_t act_id, uint8_t from_test)
 	SpeedPID_Reset(&g_speed_pid_l);
 	SpeedPID_Reset(&g_speed_pid_r);
 
-	/* 外侧轮用“档 2 升速”那套增益：1200 正好是档 2 边界，先让 Car_Control
-	 * 把增益和前馈基准切过去，后面每拍只调 SpeedPID_Calculate() */
-	outer_side = (act_id == ACT_TL) ? 1u : 0u;      /* 左转外侧是右轮 */
-	Car_Control_TrackApply(outer_side, ACT_OUTER_SPEED_MM_S,
-	                       (outer_side == 1u) ? &g_speed_pid_r : &g_speed_pid_l);
+	if(act_id == ACT_SF)
+	{
+		/* 直走：两轮都要闭环，各用自己的档位增益（1100 落在档 1） */
+		Car_Control_TrackApply(0u, ACT_STRAIGHT_SPEED_MM_S, &g_speed_pid_l);
+		Car_Control_TrackApply(1u, ACT_STRAIGHT_SPEED_MM_S, &g_speed_pid_r);
+	}
+	else
+	{
+		/* 转弯：外侧轮用“档 2 升速”那套增益：1200 正好是档 2 边界，先让 Car_Control
+		 * 把增益和前馈基准切过去，后面每拍只调 SpeedPID_Calculate() */
+		outer_side = (act_id == ACT_TL) ? 1u : 0u;  /* 左转外侧是右轮 */
+		Car_Control_TrackApply(outer_side, ACT_OUTER_SPEED_MM_S,
+		                       (outer_side == 1u) ? &g_speed_pid_r : &g_speed_pid_l);
+	}
 
 	Motor_Enable();
 
@@ -345,6 +375,7 @@ void Act_Update(void)
 	int32_t dl;
 	int32_t dr;
 	int32_t diff;
+	int32_t prog;
 	uint8_t inner;
 	uint8_t outer;
 	SpeedPID_Controller_t *pid;
@@ -358,6 +389,30 @@ void Act_Update(void)
 
 	dl = left_ecoder_cnt  - s_cnt_l0;
 	dr = right_ecoder_cnt - s_cnt_r0;
+
+	/* 直走：判据是两轮平均里程；两轮各自闭环 1100 mm/s */
+	if(s_act_id == ACT_SF)
+	{
+		prog = (dl + dr) / 2;
+
+		if(prog >= s_diff_target)
+		{
+			Act_Finish(ACT_EVT_DONE, prog);
+			return;
+		}
+
+		if(++s_ticks >= ACT_TIMEOUT_TICKS)
+		{
+			Act_Finish(ACT_EVT_TIMEOUT, prog);
+			return;
+		}
+
+		duty = SpeedPID_Calculate(&g_speed_pid_l, ACT_STRAIGHT_SPEED_MM_S, speed_left_mm_s);
+		Motor_SetSpeedClamped(MOTOR_L, duty);
+		duty = SpeedPID_Calculate(&g_speed_pid_r, ACT_STRAIGHT_SPEED_MM_S, speed_right_mm_s);
+		Motor_SetSpeedClamped(MOTOR_R, duty);
+		return;
+	}
 
 	/* 左转时外侧是右轮：差 = 右 − 左；右转镜像 */
 	if(s_act_id == ACT_TL)
@@ -458,6 +513,11 @@ const char *Act_GetName(uint8_t act_id)
 	if(act_id == ACT_TR)
 	{
 		return "act_tr";
+	}
+
+	if(act_id == ACT_SF)
+	{
+		return "act_sf";
 	}
 
 	return "act?";

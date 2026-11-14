@@ -53,7 +53,7 @@ typedef enum
 	APP_CMD_TUNE_GAIN,        /* k/K+项+[档]+侧+值：arg=((档*2+方向)*2+轮)*4+项，arg16=值×1000 */
 	APP_CMD_TUNE_FAN,         /* tf：arg=百分比 0~100，立刻起风/回怠速，与 `!` 独立（2026-11-04 起） */
 	APP_CMD_TUNE_FF,          /* kff(升)/KFF(降)：arg=0 升 1 降，arg16=系数×1000（±2000） */
-	APP_CMD_ACT_TEST          /* arg = ACT_TL / ACT_TR：单独测一次固定动作（串口 '3' / '4'） */
+	APP_CMD_ACT_TEST          /* arg = ACT_TL / ACT_TR / ACT_SF：单独测一次固定动作（串口 '3' / '4' / '5'） */
 } AppCmdType_t;
 
 typedef struct

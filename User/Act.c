@@ -53,7 +53,7 @@ static const uint8_t s_act_plan[] =
 #define ACT_HALF_STRONG         6u      /* B/C：半区至少 6 路扫到线 */
 #define ACT_HALF_WEAK           1u      /* B/C：另半区至多 1 路扫到线 */
 
-#define ACT_TRIGGER_TICKS       3u      /* 条件连续成立 3 拍（6ms）才确认 */
+#define ACT_TRIGGER_TICKS       1u      /* 命中 1 拍（2ms）就触发：单次采样符合即认（2026-11-14 用户要求） */
 #define ACT_REARM_QUIET_TICKS   5u      /* 动作结束后，条件消失保持 5 拍才重新武装 */
 
 #define ACT_TURN_ANGLE_DEG      90.0f   /* 直角 */

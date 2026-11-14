@@ -5,6 +5,7 @@
 #include "Led_Status.h"
 #include "PID_Controller.h"
 #include "ABEncoder.h"
+#include "Act.h"
 #include <stdio.h>
 
 /* 闭环运行标志（PID_Controller.c 用它判断是否发车） */
@@ -362,6 +363,7 @@ void Car_Control_ApplyMode(Car_Mode_t mode)
 	Car_Mode_t prev = s_mode;
 
 	s_mode = mode;
+	Act_Reset();                        /* 切模式：放弃正在执行的动作，动作表从头开始 */
 	star_car = 0;                       /* 先退出闭环，再按新模式下动作 */
 	s_tune_run   = 0;                   /* 切模式时退出调参闭环 */
 	s_tune_tgt_l = 0;
@@ -993,8 +995,25 @@ void Car_Control_Update(void)
 	switch(s_mode)
 	{
 		case CAR_MODE_TRACK:
-			/* 发车闭环：位置环 + 左右两个速度环，内部会下发左右轮 PWM */
-			PID_Control_Update();
+			/* 固定动作优先：正在转直角弯时由 Act 模块接管电机，
+			 * 空闲时先检测灰度阵列的触发形状，再看这一拍是否刚触发。 */
+			if(Act_IsRunning() != 0u)
+			{
+				Act_Update();
+			}
+			else
+			{
+				Act_Poll();
+				if(Act_IsRunning() != 0u)
+				{
+					Act_Update();
+				}
+				else
+				{
+					/* 发车闭环：位置环 + 左右两个速度环，内部会下发左右轮 PWM */
+					PID_Control_Update();
+				}
+			}
 			break;
 
 		case CAR_MODE_SPEED_TEST:
@@ -1010,7 +1029,12 @@ void Car_Control_Update(void)
 		case CAR_MODE_IDLE:
 		default:
 			/* 待机：停车动作已经在 Car_Control_ApplyMode(IDLE) 里做过一次，
-			 * 这里不再每 2ms 重复写电机/风扇寄存器（原来的实现会一直刷）。 */
+			 * 这里不再每 2ms 重复写电机/风扇寄存器（原来的实现会一直刷）。
+			 * 例外：串口 '3'/'4' 的台架测试会在 IDLE 里跑一次直角转弯。 */
+			if(Act_IsRunning() != 0u)
+			{
+				Act_Update();
+			}
 			break;
 	}
 }

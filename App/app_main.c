@@ -33,6 +33,7 @@
 #include "Uart_Config.h"
 #include "PID_Controller.h"
 #include "Car_Control.h"
+#include "Act.h"
 
 /*------------------------------------------------------------------------------
  * 硬件初始化（顺序与原 main.c 保持一致）
@@ -56,6 +57,7 @@ static void App_HardwareInit(void)
 
 	PID_Init();                     /* 控制器参数 + 限幅 */
 	Car_Control_Init();             /* 进入 IDLE：电机禁用、风扇 0、两环复位 */
+	Act_Init();                     /* 固定动作：算好直角转弯的编码器差，清状态 */
 
 	/* 所有外设初始化完、SysTick 启动前，再关一次 JTAG 并重配四路指示灯：
 	 * 别的外设可能重写 AFIO->MAPR，而 SWJ_CFG 是只写位，读回来是 0。 */

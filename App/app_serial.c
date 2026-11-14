@@ -10,9 +10,11 @@
   *  发：printf 仍然走阻塞式 fputc（保持原行为），但由 TxLock/TxUnlock
   *      （递归互斥量）串行化，避免波形帧与调试打印交错成乱码。
   *
-  *  指令（2026-11-14 起已去掉 '2' 电机测试 / '3''4' 灯强制 / '5' 引脚诊断，
-  *        显示任务也一并移除，板子上只剩状态灯）：
+  *  指令（2026-11-14 起已去掉 '2' 电机测试 / '5' 引脚诊断，
+  *        显示任务也一并移除，板子上只剩状态灯；'3'/'4' 改作固定动作台架测试）：
   *    's' 一键停车 IDLE      '1' 循迹 TRACK        '0' 也是停车（保留原习惯）
+  *    '3' 单独测一次 act_tl（直角左转，台架用，不消耗动作表）
+  *    '4' 单独测一次 act_tr（直角右转）
   *    'p' 风机 PWM 寄存器诊断                     'w' 切换波形帧
   *    '?' 状态行             'z' 栈水印/剩余堆     'g' 灰度 16 路实时打印（开关）
   *    'testl<0~4000>' 左轮速度环标定（目标速度单位 mm/s）
@@ -38,6 +40,7 @@
 
 #include "Uart_Config.h"
 #include "Car_Control.h"
+#include "Act.h"
 #include "Led_Status.h"
 #include "M3PWM.h"
 #include "ABEncoder.h"
@@ -1133,6 +1136,16 @@ static void Serial_HandleByte(uint8_t ch)
 			App_PostCmd(APP_CMD_MODE, (uint8_t)CAR_MODE_TRACK);
 			break;
 
+		case '3':
+			/* 台架测试：单独跑一次直角左转（不消耗动作表，转完断电回 IDLE） */
+			App_PostCmd(APP_CMD_ACT_TEST, (uint8_t)ACT_TL);
+			break;
+
+		case '4':
+			/* 台架测试：单独跑一次直角右转 */
+			App_PostCmd(APP_CMD_ACT_TEST, (uint8_t)ACT_TR);
+			break;
+
 		case 'p':
 		case 'P':
 			/* 风机 PWM 诊断：TIM2 的 PSC/ARR/CCR4/CNT + PB11 复用配置 + 重映射位 */
@@ -1253,6 +1266,36 @@ void App_SerialTask(void *argument)
 			{
 				Serial_Log("[fan] armed, throttle %u/1000 (%uus)\r\n",
 				           (unsigned int)log_a, (unsigned int)log_b);
+			}
+		}
+
+		/* 固定动作的延迟事件：同样不能在 2ms 环里 printf，这里一次取空 */
+		{
+			uint8_t  act_id   = 0u;
+			int32_t  act_diff = 0;
+			uint16_t act_ms   = 0u;
+			uint8_t  ev;
+
+			while((ev = Act_TakeEvent(&act_id, &act_diff, &act_ms)) != (uint8_t)ACT_EVT_NONE)
+			{
+				if(ev == (uint8_t)ACT_EVT_START)
+				{
+					Serial_Log("[act] %s start\r\n", Act_GetName(act_id));
+				}
+				else if(ev == (uint8_t)ACT_EVT_DONE)
+				{
+					Serial_Log("[act] %s done, diff %d counts, %ums\r\n",
+					           Act_GetName(act_id), (int)act_diff, (unsigned int)act_ms);
+				}
+				else if(ev == (uint8_t)ACT_EVT_TIMEOUT)
+				{
+					Serial_Log("[act] %s TIMEOUT, diff %d counts, %ums\r\n",
+					           Act_GetName(act_id), (int)act_diff, (unsigned int)act_ms);
+				}
+				else if(ev == (uint8_t)ACT_EVT_PLAN_END)
+				{
+					Serial_Log("[act] plan end, stop\r\n");
+				}
 			}
 		}
 

@@ -30,6 +30,7 @@
 #include "Led_Status.h"
 #include "Motor_ctr.h"
 #include "M3PWM.h"
+#include "Act.h"
 
 /*------------------------------------------------------------------------------
  * 共享采样状态的定义（声明在 app_state.h，PID_Controller.c 里 extern 引用）
@@ -188,6 +189,13 @@ static void App_ProcessCommands(void)
 				                         (float)(cmd.arg16) / 1000.0f);
 				break;
 
+			case APP_CMD_ACT_TEST:
+				/* '3'/'4'：台架上单独测一次直角转弯（不消耗动作表）。
+				 * 先停干净再启动：Act 会自己使能电机、只驱动外侧轮。 */
+				Car_Control_ApplyMode(CAR_MODE_IDLE);
+				(void)Act_TestStart(cmd.arg);
+				break;
+
 			default:
 				break;
 		}
@@ -210,6 +218,14 @@ static void App_LostLineGuard(uint8_t found)
 
 	if(Car_Control_GetMode() != CAR_MODE_TRACK)
 	{
+		return;
+	}
+
+	/* 直角转弯期间线本来就会从阵列里滑出去，这段时间不算丢线，
+	 * 否则转一半就被 1s 保护打断了。转完再从 0 开始计。 */
+	if(Act_IsRunning() != 0u)
+	{
+		lose_time = 0;
 		return;
 	}
 

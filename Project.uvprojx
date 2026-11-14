@@ -798,6 +798,16 @@
               <FilePath>.\User\BlackPoint_Finder.h</FilePath>
             </File>
             <File>
+              <FileName>Act.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\User\Act.c</FilePath>
+            </File>
+            <File>
+              <FileName>Act.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\User\Act.h</FilePath>
+            </File>
+            <File>
               <FileName>PID_Controller.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\User\PID_Controller.c</FilePath>

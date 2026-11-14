@@ -51,7 +51,7 @@ static void App_HardwareInit(void)
 	M3PWM_Start();                  /* 风机先起转（占空比 0，等 TRACK 再给 950） */
 
 	ABEncoder_Init();
-	BlackPoint_Finder_Init();       /* 16 路灰度标定表 */
+	BlackPoint_Finder_Init();       /* 16 路寻线（逐路阈值表：默认 1999，p3=1500、p6=1000、p15=900） */
 	MuxADC_Init();                  /* 模拟开关 + ADC1 校准 */
 
 	Key_Scan_Init();

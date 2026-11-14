@@ -129,12 +129,14 @@ static void Serial_SendStacks(void)
 }
 
 /*------------------------------------------------------------------------------
- * 灰度 16 路一帧：原始值 + 黑白判定 + 当前寻线结果（'g' 开关打开时每周期调用）
+ * 灰度 16 路一帧：原始值 + 白线判定 + 当前寻线结果（'g' 开关打开时每周期调用）
  *   只读 g_mux_adc_values / result_BlackPoint，不写任何外设，循迹跑着也能打。
  *   用途：确认模拟开关地址线（S0..S3 = PB0/PB1/PB2/PB10）到 Y0..Y15 的对应关系，
- *         以及各路阈值还准不准——拿一张白纸/黑胶带逐路挡一下，看是不是同一列在变。
+ *         以及白线/蓝底的分界（逐路阈值表 s_line_threshold[16]：默认 1999，
+ *         p3=1500、p6=1000、p15=900，小于判白线、大于等于判蓝底）——拿白线/蓝底各挡一次，
+ *         看那一列是不是翻到 1。
  *   注意：CtrlTask 每 2ms 更新一次数组，这里读到的 16 个值可能跨两个采样周期，
- *         做"哪一路最黑"的判断够用，做精确标定请多发几次取稳定值。
+ *         做"哪一路最白"的判断够用，做精确标定请多发几次取稳定值。
  *----------------------------------------------------------------------------*/
 static int Serial_AppendUInt(char *buf, int pos, int size, unsigned int v)
 {
@@ -166,11 +168,11 @@ static void Serial_SendGray(void)
 
 	for(base = 0u; base < 16u; base = (uint8_t)(base + 8u))
 	{
-		n  = snprintf(buf, sizeof(buf), "gray blk %2u-%2u:", (unsigned int)base, (unsigned int)(base + 7u));
+		n  = snprintf(buf, sizeof(buf), "gray line %2u-%2u:", (unsigned int)base, (unsigned int)(base + 7u));
 		for(i = base; i < (uint8_t)(base + 8u); i++)
 		{
 			n = Serial_AppendUInt(buf, n, (int)sizeof(buf),
-			                      (unsigned int)BlackPoint_Finder_IsBlackPoint(i, g_mux_adc_values[i]));
+			                      (unsigned int)BlackPoint_Finder_IsLine(i, g_mux_adc_values[i]));
 		}
 		Uart2_SendString(buf);
 		Uart2_SendString("\r\n");
@@ -494,12 +496,12 @@ static void Serial_CommitNumber(void)
 		return;
 	}
 
-	/* 速度环标定：testl0~testl400 / testr0~testr400，单位是编码器每 2ms 计数 */
+	/* 速度环标定：testl0~testl4000 / testr0~testr4000，单位 mm/s（`CAR_SPEED_TEST_MAX` = 4000） */
 	if(cmd == 'T' || cmd == 'U')
 	{
 		if(s_num_digits == 0u)
 		{
-			Serial_Log("speed: send testl0~testl400 or testr0~testr400\r\n");
+			Serial_Log("speed: send testl0~testl4000 or testr0~testr4000\r\n");
 			return;
 		}
 		App_PostCmdArg((cmd == 'T') ? APP_CMD_SPEED_TEST_L : APP_CMD_SPEED_TEST_R,
@@ -1313,7 +1315,7 @@ void App_SerialTask(void *argument)
 			last_gray = xTaskGetTickCount();
 			if(gray_was != 0u)
 			{
-				Serial_Log("[gray] ON  raw=ADC(black small) blk=0/1  pos=line  (g to exit)\r\n");
+				Serial_Log("[gray] ON  raw=ADC(white small) line=1:on-line  (g to exit)\r\n");
 				Serial_SendGray();
 			}
 			else

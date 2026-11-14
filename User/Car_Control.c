@@ -1096,9 +1096,9 @@ void Car_Control_PrintLedDiag(void)
  * 斜坡连续改写，每 2 ms 都可能变。这里按“目标一变就重选”做：
  *   1. 档位/方向按新目标选，只有换档或换向才把 kp/ki/kd 写进环里
  *      （每拍都写也不会错，只是白费几个周期）；
- *   2. ff 只在单拍跳变 ≥ CAR_TUNE_TRACK_FF_STEP_MM_S(200) 时补一次——起步斜坡
+ *   2. ff 只在单拍跳变 ≥ CAR_TUNE_TRACK_FF_STEP_MM_S(100) 时补一次——起步斜坡
  *      每拍只加 4.6 mm/s，不会触发；只有线偏差突变（16 路灰度窜一个格 ≈
- *      基准速度跳 307 mm/s）这种“真跳变”才吃前馈。这是防止 Σff·Δ 把占空比
+ *      基准速度跳 100 mm/s）这种“真跳变”才吃前馈。这是防止 Σff·Δ 把占空比
  *      沿斜坡一路堆上去的关键。
  * 两侧各存一份“上次目标”，停车时由 Car_Control_TrackReset() 清零。 */
 static float   s_track_prev_l = 0.0f;

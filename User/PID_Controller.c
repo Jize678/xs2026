@@ -149,7 +149,7 @@ void SpeedPID_Bump(SpeedPID_Controller_t *controller, float duty_delta)
 /**
  * @brief 初始化位置环PID控制器
  */
-void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, float kd, float gyro_kd,
+void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, float kd, float yaw_kd,
                       float output_max, float output_min, float target_position)
 {
 	if(controller == NULL) return;
@@ -157,7 +157,7 @@ void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, 
 	controller->param.kp = kp;
 	controller->param.ki = ki;
 	controller->param.kd = kd;
-	controller->param.gyro_kd = gyro_kd;
+	controller->param.yaw_kd = yaw_kd;
 	controller->param.output_max = output_max;
 	controller->param.output_min = output_min;
 	controller->param.integral_max = output_max * 0.5f;
@@ -166,6 +166,56 @@ void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, 
 	
 	controller->last_error = 0.0f;
 	controller->integral = 0.0f;
+}
+
+/*------------------------------------------------------------------------------
+ * 航向角估计（2026-11-14：陀螺没装，用两路编码器差速积分出航向角）
+ *
+ *   ω = (v_R − v_L) / L          [rad/s]，左转为正（与陀螺 Z 轴同符号）
+ *   θ = ∫ ω dt                   [rad]，进循迹/复位时清零
+ *
+ *   微分驱动不打滑时 θ 严格等于整车转过的角度：θ = (d_R − d_L) / L。
+ *   所以它量的是"车自己转了多少度"，正是原来陀螺项要的那个量；
+ *   差别在于它不再独立于转向指令（详见 README §10.7）。
+ *----------------------------------------------------------------------------*/
+#define WHEEL_BASE_MM        130.0f   /* 两驱动轮中心距（实测） */
+#define PID_YAW_KD           100.0f   /* 航向角项增益：舵量/rad，0 = 关闭该项。
+                                       * 含义：满量程航向 1 rad（57°）只给 100 舵量（半格）。
+                                       * 2026-11-14 上车试调由 500 降到 100（500 时"顺转向加舵"
+                                       * 太强，弯道上越跑越偏），文档已同步。 */
+#define PID_YAW_LPF          0.35f    /* 角速度一阶低通（2 ms 一拍 ⇒ ≈6 ms） */
+#define PID_YAW_HEAD_MAX     1.0f     /* 航向角积分上限 ±1 rad（≈57°），防弯道累积跑飞 */
+#define PID_YAW_TERM_MAX     7000.0f  /* 与旧 gyro_term 的限幅保持一致 */
+#define PID_TICK_S           0.002f   /* 控制周期 2 ms，用于积分 */
+
+static float s_yaw_rate = 0.0f;       /* 滤波后的角速度估计 rad/s */
+static float s_heading  = 0.0f;       /* 航向角积分 rad（左转为正） */
+
+float PID_EstimateYawRate(void)
+{
+	float raw = (speed_right_mm_s - speed_left_mm_s) / WHEEL_BASE_MM;
+
+	s_yaw_rate += PID_YAW_LPF * (raw - s_yaw_rate);
+
+	/* 积分成航向角；限幅防止弯道上一路累加 */
+	s_heading += s_yaw_rate * PID_TICK_S;
+	if(s_heading > PID_YAW_HEAD_MAX)
+		s_heading = PID_YAW_HEAD_MAX;
+	else if(s_heading < -PID_YAW_HEAD_MAX)
+		s_heading = -PID_YAW_HEAD_MAX;
+
+	return s_yaw_rate;
+}
+
+float PID_GetHeading(void)
+{
+	return s_heading;
+}
+
+void PID_ResetYawEst(void)
+{
+	s_yaw_rate = 0.0f;
+	s_heading  = 0.0f;
 }
 
 /**
@@ -199,14 +249,19 @@ float PositionPID_Calculate(PositionPID_Controller_t *controller, float current_
 	
 	// 微分项：Kd * [e(k) - e(k-1)]
 	float d_term = controller->param.kd * (error - controller->last_error);
-	float gyro_term = controller->param.gyro_kd * LSE6DSR_data.gz_rads;
-	if(gyro_term >= 7000)
+	/* 航向角前馈（结构完全沿用原来的陀螺项：output = p + i + d − gyro_term）。
+	 * gyro_term 现在 = yaw_kd · θ，θ 是两路编码器差速积分出来的航向角（rad，左转为正）。
+	 * 注意 θ 是"进循迹以来累计转过的角度"，弯道上会一直往同一边累积，
+	 * 所以增益只能给小的，积分本身另有 ±PID_YAW_HEAD_MAX 的限幅。 */
+	(void)PID_EstimateYawRate();   /* 每 2 ms 更新一次 ω 低通与 θ 积分 */
+	float gyro_term = controller->param.yaw_kd * PID_GetHeading();
+	if(gyro_term >= PID_YAW_TERM_MAX)
 	{
-		gyro_term = 7000;
+		gyro_term = PID_YAW_TERM_MAX;
 	}
-	else if(gyro_term <= -7000)
+	else if(gyro_term <= -PID_YAW_TERM_MAX)
 	{
-		gyro_term = -7000;
+		gyro_term = -PID_YAW_TERM_MAX;
 	}
 	// 输出偏差值（直接叠加到速度环输出）
 	output = p_term + i_term + d_term - gyro_term;
@@ -283,7 +338,7 @@ void Motor_SetSpeedClamped(uint8_t motor_id, float speed_target)
 /*==============================================================================
  * 闭环架构（串级）：位置环（外环）→ 速度环（内环，左右各一个）→ 电机
  *
- *   线位置 position_get/10  (0~15，中心 8.0)
+ *   线位置 position_get/10  (0~15，中心 7.5 = 16 路几何中点)
  *        │
  *        ▼  PositionPID_Calculate()            常数未改：Kp 198 / Ki 0 / Kd 2280
  *   转向量 steer  (±9000，本质是 duty 量纲的"舵量")
@@ -296,16 +351,20 @@ void Motor_SetSpeedClamped(uint8_t motor_id, float speed_target)
  *           SpeedPID_Calculate(&g_speed_pid_r, 右目标, speed_right_mm_s)
  *   duty_L / duty_R (0~8000) → Motor_SetSpeedClamped()
  *
- * base = 2110 − min(|pos−8|,3)/3 × 920   （1190~2110 mm/s，偏差越大越慢）
+ * base = 1100 − min(|pos−7.5|,3)/3 × 300   （800~1100 mm/s，偏差越大越慢）
  *
- * 单位：速度环的目标和反馈都是 **mm/s**（由 ABEncoder 按 54476 counts/m 标定换算好），
- *       直道基准 2110 mm/s ≈ 2.1 m/s（旧写法 230 counts/2ms）。方向环常数沿用旧的 duty 量纲，
+ * 单位：速度环的目标和反馈都是 **mm/s**（由 ABEncoder 按 54476 counts/m 标定换算好）。
+ *       基准速度的来历：2110/1190（-2026-11-13）→ 700/400（2026-11-13 场地变小先求稳）
+ *       → **1100/800（2026-11-14 用户上车试调）**。三次都按满 3 格线性铺开，每格恒为
+ *       100 mm/s，所以"灰度窜一格 = 差速跳 100"这个前提一直成立。
+ *       方向环常数沿用旧的 duty 量纲，未重标。
  *============================================================================*/
 
-#define PID_BASE_FAST      2110.0f  /* 居中时的基准速度（mm/s）≈ 2.11 m/s，旧写法 230 counts/2ms */
-#define PID_BASE_SLOW      1190.0f  /* 偏差 >= 3 格时的基准速度（mm/s），旧写法 130 counts/2ms */
+#define PID_POS_CENTER     7.5f     /* 线位置中心：16 路 p0..p15，几何中点是 7.5 */
+#define PID_BASE_FAST      1100.0f   /* 居中时的基准速度（mm/s）：2110 →(11-13) 700 →(11-14 试调) 1100 */
+#define PID_BASE_SLOW      800.0f   /* 偏差 >= 3 格时的基准速度（mm/s）：1190 →(11-13) 400 →(11-14) 800，每格仍 100 */
 #define PID_STEER_FULL     9000.0f  /* 方向环输出上限，对应 ±基准速度 的差速 */
-#define PID_RAMP_STEP      4.6f     /* 起步斜坡：每 2ms 加 4.6 mm/s（≈ 旧 0.5 counts/2ms），0→2110 约 0.92s */
+#define PID_RAMP_STEP      4.6f     /* 起步斜坡：每 2ms 加 4.6 mm/s，0→1100 约 0.48s（0→700 时代 0.30s） */
 
 SpeedPID_Controller_t g_speed_pid_l;    /* 内环：左轮 */
 SpeedPID_Controller_t g_speed_pid_r;    /* 内环：右轮 */
@@ -326,8 +385,10 @@ void PID_Init(void)
 	SpeedPID_Init(&g_speed_pid_l, 0.200f, 0.080f, 0.040f, 8000.0f, -8000.0f);
 	SpeedPID_Init(&g_speed_pid_r, 0.200f, 0.080f, 0.040f, 8000.0f, -8000.0f);
 
-	/* 外环：线位置 → 转向量（输出 ±9000，换算见文件顶部的框图） */
-	PositionPID_Init(&g_position_pid, 198.0f, 0.0f, 2280.0f, 2800.0f, 9000.0f, -9000.0f, 8.0f);
+	/* 外环：线位置 → 转向量（输出 ±9000，换算见文件顶部的框图）。
+	 * 目标位置 = 16 路的中点 7.5（p0 最左、p15 最右），不是 8.0。 */
+	//																	p				i				d			前馈系数
+	PositionPID_Init(&g_position_pid, 198.0f, 0.0f, 2280.0f, PID_YAW_KD, 9000.0f, -9000.0f, PID_POS_CENTER);
 }
 
 extern uint8_t star_car;
@@ -342,6 +403,7 @@ void PID_ResetRamp(void)
 {
 	s_ramp_done = 0u;
 	s_ramp_base = 0.0f;
+	PID_ResetYawEst();   /* 进/出循迹时角速度估计也要从 0 起 */
 }
 
 void PID_Control_Update(void)
@@ -355,15 +417,15 @@ void PID_Control_Update(void)
 	float target_left, target_right;
 	float duty_left, duty_right;
 
-	/* 1. 当前位置：0~15，中心 8.0 */
+	/* 1. 当前位置：0~15，中心 PID_POS_CENTER(7.5) */
 	current_position = (float)position_get / 10.0f;
 
 	/* 2. 外环：位置 → 转向量（±9000） */
 	steer = PositionPID_Calculate(&g_position_pid, current_position);
 
-	/* 3. 基准速度：偏差越大越慢 */
+	/* 3. 基准速度：偏差越大越慢（7.5 = 16 路中点） */
 	base_target = PID_BASE_FAST
-	            - (fmin(fabs(current_position - 8.0f), 3.0f) / 3.0f)
+	            - (fmin(fabs(current_position - PID_POS_CENTER), 3.0f) / 3.0f)
 	              * (PID_BASE_FAST - PID_BASE_SLOW);
 
 	if(star_car)

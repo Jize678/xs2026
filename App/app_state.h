@@ -52,9 +52,9 @@ typedef enum
 	APP_CMD_TUNE_RUN,         /* `! ms side`：定时闭环，arg=侧别，arg16=时长 ms */
 	APP_CMD_TUNE_HALT,        /* hlt：目标清零、占空比 0，留在调参模式 */
 	APP_CMD_TUNE_TARGET,      /* vl/vr：arg=左右轮，arg16=目标 mm/s */
-	APP_CMD_TUNE_GAIN,        /* kl/il/dl…：arg=轮*3+项，arg16=增益×1000 */
-	APP_CMD_TUNE_FAN,         /* tf：arg=百分比 0~100，下次 `!` 实验的负压（0=不带） */
-	APP_CMD_TUNE_FF           /* kff：arg16=前馈系数×1000（占空比/(mm/s)，0=关） */
+	APP_CMD_TUNE_GAIN,        /* k/K+项+[档]+侧+值：arg=((档*2+方向)*2+轮)*4+项，arg16=值×1000 */
+	APP_CMD_TUNE_FAN,         /* tf：arg=百分比 0~100，立刻起风/回怠速，与 `!` 独立（2026-11-04 起） */
+	APP_CMD_TUNE_FF           /* kff(升)/KFF(降)：arg=0 升 1 降，arg16=系数×1000（±2000） */
 } AppCmdType_t;
 
 typedef struct

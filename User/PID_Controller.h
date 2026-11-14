@@ -10,14 +10,14 @@
  * @brief PID 控制器使用说明（串级：位置环 → 速度环）
  *
  * 控制架构：
- * 1. 位置环（外环 / 方向环）：输入线位置（0~15，中心 8.0），
+ * 1. 位置环（外环 / 方向环）：输入线位置（0~15，中心 7.5），
  *    输出「转向量」steer（±9000，沿用旧的 duty 量纲）。
  * 2. 速度环（内环）：**左右轮各一个**，输入目标速度、反馈各自的编码器速度
  *    （单位：**mm/s**，由 ABEncoder 按 54476 counts/m 标定换算好），输出各自的占空比。
  *    增量式：Δu = Kp·[e(k)−e(k−1)] + Ki·e(k) + Kd·[e(k)−2e(k−1)+e(k−2)]，u = u(k−1) + Δu。
  *
  * 数据流（每 2ms 一拍，PID_Control_Update()）：
- *    base  = 2110 − min(|pos−8|,3)/3 × 920            // 偏差越大越慢，1190~2110 mm/s
+ *    base  = 1100 − min(|pos−7.5|,3)/3 × 300          // 偏差越大越慢，800~1100 mm/s
  *    steer = PositionPID_Calculate(pos)               // ±9000（方向环，duty 量纲的舵量）
  *    diff  = steer × base / 9000                      // 满舵 = ±base
  *    左目标 = base + diff  (≥0)
@@ -26,7 +26,7 @@
  *    duty_R = SpeedPID_Calculate(&g_speed_pid_r, 右目标, speed_right_mm_s)
  *
  * 极性（与旧版一致，未上板确认）：
- *    error = pos − 8 > 0（线在偏 8 这一侧）→ steer > 0 → 左目标变大、右目标变小（左快右慢 = 右转）
+ *    error = pos − 7.5 > 0（线在偏 7.5 这一侧）→ steer > 0 → 左目标变大、右目标变小（左快右慢 = 右转）
  *    实际往哪边修正取决于 Y0~Y15 的安装方向，现场若发现越修越偏，把
  *    PID_Controller.c 里左右目标的加减号对调即可。
  */
@@ -84,7 +84,8 @@ typedef struct
 	float kp;           // 比例系数
 	float ki;           // 积分系数
 	float kd;           // 微分系数
-	float gyro_kd;
+	float yaw_kd;       // 航向角项增益（舵量/rad）；航向角由两路编码器差速积分得到
+	                    // （2026-11-14 起没有 IMU，原来的 gyro_kd 改名 yaw_kd）
 	float output_max;   // 输出上限（偏差值，叠加到速度环输出）
 	float output_min;   // 输出下限（偏差值，叠加到速度环输出）
 	float integral_max; // 积分限幅
@@ -159,12 +160,29 @@ void SpeedPID_Bump(SpeedPID_Controller_t *controller, float duty_delta);
  * @param kp: 比例系数
  * @param ki: 积分系数
  * @param kd: 微分系数
+ * @param yaw_kd: 航向角项增益（舵量/rad），航向角由编码器差速积分得到，0 = 关闭
  * @param output_max: 输出上限（偏差值，叠加到速度环输出）
  * @param output_min: 输出下限（偏差值，叠加到速度环输出）
  * @param target_position: 目标位置（寻点中心位置，通常为SENSOR_COUNT/2）
  */
-void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, float kd, float gyro_kd,
+void PositionPID_Init(PositionPID_Controller_t *controller, float kp, float ki, float kd, float yaw_kd,
                       float output_max, float output_min, float target_position);
+
+/**
+ * @brief 航向角速度估计（编码器差速，rad/s，左转为正，与陀螺 Z 轴同符号）
+ * @note 内部带一阶低通，并顺带把角速度积分成航向角；每 2ms 调一次
+ */
+float PID_EstimateYawRate(void);
+
+/**
+ * @brief 取当前航向角（rad，左转为正），与 PID_EstimateYawRate() 配套
+ */
+float PID_GetHeading(void);
+
+/**
+ * @brief 清角速度低通与航向角积分（进/出循迹、复位斜坡时调用）
+ */
+void PID_ResetYawEst(void);
 
 /**
  * @brief 位置环PID计算（位置式）
